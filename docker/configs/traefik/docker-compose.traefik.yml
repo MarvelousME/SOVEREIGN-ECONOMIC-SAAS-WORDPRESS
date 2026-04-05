@@ -1,0 +1,116 @@
+# =============================================================================
+# Traefik API Gateway - Compose (Podman/Docker-compatible)
+# UBI-CMS Platform
+# =============================================================================
+
+version: '3.8'
+
+services:
+  # ===========================================================================
+  # TRAEFIK API GATEWAY
+  # ===========================================================================
+  
+  traefik:
+    image: traefik:v3.0
+    container_name: ubi-cms-traefik
+    restart: unless-stopped
+    
+    ports:
+      # HTTP
+      - "80:80"
+      # HTTPS
+      - "443:443"
+      # Dashboard (only accessible via auth)
+      - "8080:8080"
+      # Metrics
+      - "8082:8082"
+    
+    volumes:
+      # Podman API socket (Docker-compatible) for service discovery; override with PODMAN_SOCK if needed
+      - ${PODMAN_SOCK:-/run/podman/podman.sock}:/var/run/docker.sock:ro
+      
+      # Configuration files
+      - ./traefik.yml:/etc/traefik/traefik.yml:ro
+      - ./dynamic:/etc/traefik/dynamic:ro
+      
+      # Certificates
+      - ./certs:/etc/traefik/certs:ro
+      
+      # ACME storage for Let's Encrypt
+      - ./certs/acme.json:/etc/traefik/acme.json
+      
+      # Logs
+      - traefik-logs:/var/log/traefik
+    
+    environment:
+      - TZ=Africa/Johannesburg
+      - JWT_SECRET=${JWT_SECRET:-change-me-in-production}
+      
+      # Cloudflare DNS (if using DNS challenge)
+      # - CF_API_EMAIL=${CLOUDFLARE_EMAIL}
+      # - CF_API_KEY=${CLOUDFLARE_API_KEY}
+    
+    networks:
+      - ubi-cms-network
+    
+    labels:
+      # Enable Traefik for this service
+      - "traefik.enable=true"
+      
+      # Dashboard
+      - "traefik.http.routers.traefik-dashboard.rule=Host(`traefik.ubi-cms.local`)"
+      - "traefik.http.routers.traefik-dashboard.entrypoints=websecure"
+      - "traefik.http.routers.traefik-dashboard.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.traefik-dashboard.service=api@internal"
+      - "traefik.http.routers.traefik-dashboard.middlewares=admin-chain@file"
+      
+      # Metrics
+      - "traefik.http.services.traefik-metrics.loadbalancer.server.port=8082"
+    
+    healthcheck:
+      test: ["CMD", "traefik", "healthcheck", "--ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+      start_period: 10s
+
+  # ===========================================================================
+  # EXAMPLE SERVICE WITH TRAEFIK LABELS
+  # ===========================================================================
+  
+  # Uncomment and modify for your services
+  
+  # portal-ui:
+  #   image: your-portal-ui:latest
+  #   container_name: ubi-cms-portal-ui
+  #   networks:
+  #     - ubi-cms-network
+  #   labels:
+  #     - "traefik.enable=true"
+  #     - "traefik.http.routers.portal-ui.rule=Host(`ubi-cms.local`)"
+  #     - "traefik.http.routers.portal-ui.entrypoints=websecure"
+  #     - "traefik.http.routers.portal-ui.tls.certresolver=letsencrypt"
+  #     - "traefik.http.routers.portal-ui.middlewares=public-chain@file"
+  #     - "traefik.http.services.portal-ui.loadbalancer.server.port=3000"
+  
+  # admin-ui:
+  #   image: your-admin-ui:latest
+  #   container_name: ubi-cms-admin-ui
+  #   networks:
+  #     - ubi-cms-network
+  #   labels:
+  #     - "traefik.enable=true"
+  #     - "traefik.http.routers.admin-ui.rule=Host(`admin.ubi-cms.local`)"
+  #     - "traefik.http.routers.admin-ui.entrypoints=websecure"
+  #     - "traefik.http.routers.admin-ui.tls.certresolver=letsencrypt"
+  #     - "traefik.http.routers.admin-ui.middlewares=admin-chain@file"
+  #     - "traefik.http.services.admin-ui.loadbalancer.server.port=3001"
+
+networks:
+  ubi-cms-network:
+    name: ubi-cms-network
+    driver: bridge
+
+volumes:
+  traefik-logs:
+    name: ubi-cms-traefik-logs

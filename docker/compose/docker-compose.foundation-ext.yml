@@ -1,0 +1,48 @@
+version: '3.8'
+
+services:
+  policy-engine:
+    image: openpolicyagent/opa:latest
+    container_name: ubi-cms-opa
+    command: run --server --config-file=/etc/opa/opa-config.yaml
+    volumes:
+      - ./configs/opa:/etc/opa
+      - opa-data:/etc/opa/data
+    ports:
+      - "8181:8181"
+    networks:
+      - ubi-network
+
+  qdrant:
+    image: qdrant/qdrant:v1.17.0
+    container_name: ubi-cms-qdrant
+    volumes:
+      - ./configs/qdrant:/qdrant/storage
+      - qdrant-data:/qdrant/storage
+    ports:
+      - "6333:6333"
+      - "6334:6334"
+    networks:
+      - ubi-network
+
+  temporal-ui:
+    image: temporalio/ui:latest
+    container_name: ubi-cms-temporal-ui
+    environment:
+      - TEMPORAL_ADDRESS=temporal:7233
+      - TEMPORAL_CORS_ORIGINS=*
+    ports:
+      - "8088:8080"
+    networks:
+      - ubi-network
+    depends_on:
+      - temporal
+
+networks:
+  ubi-network:
+    name: ubi-cms-network
+    external: true
+
+volumes:
+  opa-data:
+  qdrant-data:

@@ -1,0 +1,215 @@
+name: Security Scan
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+  schedule:
+    # Run daily at 2 AM UTC
+    - cron: '0 2 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  security-events: write
+  pull-requests: write
+
+jobs:
+  dependency-scan:
+    name: Dependency Vulnerability Scan
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        service:
+          - api
+          - services/governance-service
+          - services/notifications-service
+          - services/agent-runner
+          - services/agent-control-plane
+          - services/reputation-service
+          - services/rewards-engine
+          - services/task-marketplace
+          - services/treasury-engine
+          - services/ubi-engine
+          - services/ledger-service
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+
+      - name: Run npm audit
+        working-directory: ./${{ matrix.service }}
+        run: |
+          npm audit --json > audit-results.json || true
+          npm audit --audit-level=high
+        continue-on-error: true
+
+      - name: Upload audit results
+        uses: actions/upload-artifact@v4
+        with:
+          name: npm-audit-${{ matrix.service }}
+          path: ${{ matrix.service }}/audit-results.json
+
+  sast-scan:
+    name: Static Application Security Testing
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Run Semgrep
+        uses: returntocorp/semgrep-action@v1
+        with:
+          config: >-
+            p/security-audit
+            p/nodejs
+            p/javascript
+            p/sql-injection
+            p/xss
+          generateSarif: true
+
+      - name: Upload Semgrep results to GitHub Security
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: semgrep.sarif
+        if: always()
+
+  secret-scan:
+    name: Secret Scanning
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Run Gitleaks
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Run TruffleHog
+        uses: trufflesecurity/trufflehog@main
+        with:
+          path: ./
+          base: ${{ github.event.repository.default_branch }}
+          head: HEAD
+          extra_args: --debug --only-verified
+
+  container-scan:
+    name: Container Image Scanning
+    runs-on: ubuntu-latest
+    if: github.event_name != 'pull_request'
+    strategy:
+      matrix:
+        service: [api, governance-service, notifications-service]
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build image for scanning
+        uses: docker/build-push-action@v5
+        with:
+          context: ./${{ matrix.service }}
+          file: ./${{ matrix.service }}/Dockerfile
+          push: false
+          load: true
+          tags: ubi-cms-${{ matrix.service }}:scan
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Run Trivy scanner
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: ubi-cms-${{ matrix.service }}:scan
+          format: 'sarif'
+          output: 'trivy-results.sarif'
+          severity: 'CRITICAL,HIGH'
+
+      - name: Upload Trivy results
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: 'trivy-results.sarif'
+          category: container-${{ matrix.service }}
+
+      - name: Run Grype scanner
+        uses: anchore/scan-action@v3
+        with:
+          image: ubi-cms-${{ matrix.service }}:scan
+          fail-build: false
+          severity-cutoff: high
+          output-format: sarif
+
+      - name: Upload Grype results
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: ${{ steps.scan.outputs.sarif }}
+          category: grype-${{ matrix.service }}
+
+  codeql-analysis:
+    name: CodeQL Analysis
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v3
+        with:
+          languages: javascript
+
+      - name: Perform CodeQL Analysis
+        uses: github/codeql-action/analyze@v3
+
+  security-report:
+    name: Security Summary Report
+    runs-on: ubuntu-latest
+    needs: [dependency-scan, sast-scan, secret-scan, codeql-analysis]
+    if: always()
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+
+      - name: Generate security report
+        run: |
+          echo "# Security Scan Report" > security-report.md
+          echo "Generated: $(date)" >> security-report.md
+          echo "" >> security-report.md
+          
+          echo "## Summary" >> security-report.md
+          echo "- Dependency Scan: ${{ needs.dependency-scan.result }}" >> security-report.md
+          echo "- SAST Scan: ${{ needs.sast-scan.result }}" >> security-report.md
+          echo "- Secret Scan: ${{ needs.secret-scan.result }}" >> security-report.md
+          echo "- CodeQL Analysis: ${{ needs.codeql-analysis.result }}" >> security-report.md
+
+      - name: Upload security report
+        uses: actions/upload-artifact@v4
+        with:
+          name: security-report
+          path: security-report.md
+
+      - name: Comment PR with security summary
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const report = fs.readFileSync('security-report.md', 'utf8');
+            
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: report
+            });

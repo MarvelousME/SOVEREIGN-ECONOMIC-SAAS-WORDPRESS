@@ -1,0 +1,32 @@
+version: '3.8'
+
+services:
+  compliance-engine:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: compliance-engine
+    ports:
+      - "3020:3020"
+    environment:
+      - NODE_ENV=production
+      - PORT=3020
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_NAME=ubi_cms
+      - DB_USER=ubi_user
+      - DB_PASSWORD=ubi_password
+      - NATS_URL=nats://nats:4222
+      - LOG_LEVEL=info
+    depends_on:
+      postgres:
+        condition: service_healthy
+      nats:
+        condition: service_started
+    networks:
+      - sovereign-network
+    restart: unless-stopped
+
+networks:
+  sovereign-network:
+    external: true

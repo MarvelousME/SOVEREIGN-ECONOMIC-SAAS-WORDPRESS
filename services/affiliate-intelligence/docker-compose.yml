@@ -1,0 +1,79 @@
+version: '3.8'
+
+services:
+  affiliate-intelligence:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: affiliate-intelligence
+    ports:
+      - "3010:3010"
+    environment:
+      - NODE_ENV=production
+      - PORT=3010
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_NAME=affiliate_intelligence
+      - DB_USER=postgres
+      - DB_PASSWORD=${DB_PASSWORD:-postgres}
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - NATS_URL=nats://nats:4222
+      - AFFILIATE_FRESHNESS_DECAY_HOURS=24
+      - AFFILIATE_MIN_FRESHNESS_SCORE=0.5
+    depends_on:
+      - postgres
+      - redis
+      - nats
+    networks:
+      - ubi-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:3010/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  postgres:
+    image: postgres:15-alpine
+    container_name: affiliate-postgres
+    environment:
+      - POSTGRES_DB=affiliate_intelligence
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=${DB_PASSWORD:-postgres}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ../../migrations:/docker-entrypoint-initdb.d
+    networks:
+      - ubi-network
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    container_name: affiliate-redis
+    command: redis-server --appendonly yes
+    volumes:
+      - redis-data:/data
+    networks:
+      - ubi-network
+    restart: unless-stopped
+
+  nats:
+    image: nats:2-alpine
+    container_name: affiliate-nats
+    command: "-js"
+    ports:
+      - "4222:4222"
+      - "8222:8222"
+    networks:
+      - ubi-network
+    restart: unless-stopped
+
+networks:
+  ubi-network:
+    driver: bridge
+
+volumes:
+  postgres-data:
+  redis-data:

@@ -1,0 +1,194 @@
+name: Documentation CI
+
+on:
+  push:
+    branches: [main, develop]
+    paths:
+      - 'docs/**'
+      - 'api/src/**'
+      - 'frontend/portal-ui/src/**'
+  pull_request:
+    paths:
+      - 'docs/**'
+
+jobs:
+  # ─── Validate Markdown documentation ────────────────────────────────────────
+  lint-docs:
+    name: Lint Documentation
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: package-lock.json
+
+      - name: Install markdownlint
+        run: npm install -g markdownlint-cli
+
+      - name: Lint Markdown files
+        run: |
+          markdownlint \
+            'docs/**/*.md' \
+            --config .markdownlint.json \
+            --ignore 'docs/node_modules/**' \
+            || true
+        # `|| true` prevents hard failure until .markdownlint.json is tuned
+
+      - name: Check for broken internal links
+        uses: gaurav-nelson/github-action-markdown-link-check@v1
+        with:
+          use-quiet-mode: 'yes'
+          folder-path: 'docs/'
+          config-file: '.mlc-config.json'
+        continue-on-error: true  # advisory only until all links are verified
+
+  # ─── Validate API documentation completeness ────────────────────────────────
+  check-api-docs:
+    name: Check API Reference Completeness
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install API dependencies
+        run: npm ci
+        working-directory: api
+
+      - name: Extract defined routes from index.js
+        id: routes
+        run: |
+          node -e "
+          const fs = require('fs');
+          const src = fs.readFileSync('api/src/index.js', 'utf8');
+          const routes = [];
+          const re = /apiRouter\.(get|post|put|patch|delete)\s*\(\s*[''\`]([^''\`]+)[''\`]/g;
+          let m;
+          while ((m = re.exec(src)) !== null) {
+            routes.push(m[1].toUpperCase() + ' /api/v1' + m[2]);
+          }
+          // Also include health/ready
+          routes.unshift('GET /health', 'GET /ready');
+          console.log('Documented routes:');
+          routes.forEach(r => console.log(' ' + r));
+          console.log('Total:', routes.length);
+          "
+
+      - name: Verify api-reference.md exists and is non-empty
+        run: |
+          if [ ! -f "docs/api-reference.md" ]; then
+            echo "❌ docs/api-reference.md is missing"
+            exit 1
+          fi
+          LINES=$(wc -l < docs/api-reference.md)
+          if [ "$LINES" -lt 50 ]; then
+            echo "❌ docs/api-reference.md appears too short ($LINES lines)"
+            exit 1
+          fi
+          echo "✅ docs/api-reference.md exists ($LINES lines)"
+
+      - name: Verify all core doc files exist
+        run: |
+          MISSING=0
+          for doc in \
+            "docs/README.md" \
+            "docs/api-reference.md" \
+            "docs/architecture.md" \
+            "docs/developer-guide.md" \
+            "docs/user-guide.md" \
+            "docs/database-schema.md" \
+            "docs/environment-variables.md"; do
+            if [ -f "$doc" ]; then
+              echo "✅ $doc"
+            else
+              echo "❌ MISSING: $doc"
+              MISSING=$((MISSING + 1))
+            fi
+          done
+          if [ "$MISSING" -gt 0 ]; then
+            echo ""
+            echo "❌ $MISSING required documentation file(s) are missing"
+            exit 1
+          fi
+          echo ""
+          echo "✅ All required documentation files are present"
+
+  # ─── Build and type-check frontend (validates api.ts types match docs) ──────
+  typecheck-frontend:
+    name: TypeScript Type Check (validates API types)
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: frontend/portal-ui/package-lock.json
+
+      - name: Install frontend dependencies
+        run: npm ci
+        working-directory: frontend/portal-ui
+
+      - name: TypeScript type check
+        run: npx tsc --noEmit
+        working-directory: frontend/portal-ui
+
+      - name: Verify demo.ts exports (mock data present)
+        run: |
+          node -e "
+          const fs = require('fs');
+          const demo = fs.readFileSync('src/lib/demo.ts', 'utf8');
+          const required = [
+            'isDemoUser',
+            'DEMO_UBI_BALANCE',
+            'DEMO_TASKS',
+            'DEMO_TREASURY_BALANCE',
+            'DEMO_REWARD_BALANCE',
+            'DEMO_AGENTS',
+          ];
+          const missing = required.filter(e => !demo.includes(e));
+          if (missing.length > 0) {
+            console.error('Missing exports in demo.ts:', missing.join(', '));
+            process.exit(1);
+          }
+          console.log('✅ All required demo exports present');
+          "
+        working-directory: frontend/portal-ui
+
+  # ─── (Optional) Generate OpenAPI spec from routes ──────────────────────────
+  # Uncomment when swagger-jsdoc annotations are added to controllers
+  #
+  # generate-openapi:
+  #   name: Generate OpenAPI Spec
+  #   runs-on: ubuntu-latest
+  #   needs: [check-api-docs]
+  #   if: github.ref == 'refs/heads/main'
+  #
+  #   steps:
+  #     - uses: actions/checkout@v4
+  #     - name: Generate openapi.json
+  #       run: |
+  #         cd api
+  #         npm ci
+  #         node scripts/generate-openapi.js > docs/api/openapi.json
+  #     - name: Validate OpenAPI spec
+  #       uses: char0n/swagger-editor-validate@v1
+  #       with:
+  #         definition-file: docs/api/openapi.json
+  #     - name: Commit generated spec
+  #       uses: stefanzweifel/git-auto-commit-action@v5
+  #       with:
+  #         commit_message: 'docs: regenerate openapi.json [skip ci]'
+  #         file_pattern: 'docs/api/openapi.json'

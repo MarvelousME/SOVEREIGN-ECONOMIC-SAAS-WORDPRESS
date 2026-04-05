@@ -1,0 +1,55 @@
+version: '3.8'
+
+services:
+  treasury-engine:
+    build: .
+    ports:
+      - "3004:3004"
+    environment:
+      - NODE_ENV=production
+      - PORT=3004
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_NAME=treasury_db
+      - DB_USER=postgres
+      - DB_PASSWORD=postgres
+      - NATS_URL=nats://nats:4222
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - TEMPORAL_ADDRESS=temporal:7233
+      - OPA_URL=http://opa:8181
+      - LEDGER_SERVICE_URL=http://ledger-service:3001
+    depends_on:
+      - postgres
+      - redis
+      - nats
+    networks:
+      - ubi-network
+
+  postgres:
+    image: postgres:15-alpine
+    environment:
+      - POSTGRES_DB=treasury_db
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+    volumes:
+      - treasury-postgres-data:/var/lib/postgresql/data
+    networks:
+      - ubi-network
+
+  redis:
+    image: redis:7-alpine
+    networks:
+      - ubi-network
+
+  nats:
+    image: nats:2.10-alpine
+    networks:
+      - ubi-network
+
+networks:
+  ubi-network:
+    external: true
+
+volumes:
+  treasury-postgres-data:

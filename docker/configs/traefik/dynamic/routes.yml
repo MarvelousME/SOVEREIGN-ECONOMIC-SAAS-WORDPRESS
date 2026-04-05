@@ -1,0 +1,485 @@
+# =============================================================================
+# Traefik Dynamic Configuration - Routing Rules
+# Frontend, API, and Infrastructure Routes
+# =============================================================================
+
+http:
+  routers:
+    # =========================================================================
+    # FRONTEND ROUTES
+    # =========================================================================
+    
+    # Portal UI (Main Frontend)
+    portal-ui:
+      rule: "Host(`ubi-cms.local`)"
+      entryPoints:
+        - websecure
+      service: portal-ui-service
+      middlewares:
+        - public-chain
+      tls:
+        certResolver: letsencrypt
+
+    # Admin UI
+    admin-ui:
+      rule: "Host(`admin.ubi-cms.local`)"
+      entryPoints:
+        - websecure
+      service: admin-ui-service
+      middlewares:
+        - admin-chain
+      tls:
+        certResolver: letsencrypt
+
+    # =========================================================================
+    # API ROUTES - AUTHENTICATION & AUTHORIZATION
+    # =========================================================================
+    
+    # Auth Service
+    api-auth:
+      rule: "Host(`ubi-cms.local`) && PathPrefix(`/api/v1/auth`)"
+      entryPoints:
+        - websecure
+      service: auth-service
+      middlewares:
+        - auth-chain
+        - strip-api-prefix
+      priority: 100
+      tls:
+        certResolver: letsencrypt
+
+    # =========================================================================
+    # API ROUTES - CORE SERVICES
+    # =========================================================================
+    
+    # Ledger Service
+    api-ledger:
+      rule: "Host(`ubi-cms.local`) && PathPrefix(`/api/v1/ledger`)"
+      entryPoints:
+        - websecure
+      service: ledger-service
+      middlewares:
+        - api-chain
+        - keycloak-auth
+        - strip-api-prefix
+      priority: 90
+      tls:
+        certResolver: letsencrypt
+
+    # UBI Engine
+    api-ubi:
+      rule: "Host(`ubi-cms.local`) && PathPrefix(`/api/v1/ubi`)"
+      entryPoints:
+        - websecure
+      service: ubi-engine-service
+      middlewares:
+        - api-chain
+        - keycloak-auth
+        - strip-api-prefix
+      priority: 90
+      tls:
+        certResolver: letsencrypt
+
+    # Treasury Engine
+    api-treasury:
+      rule: "Host(`ubi-cms.local`) && PathPrefix(`/api/v1/treasury`)"
+      entryPoints:
+        - websecure
+      service: treasury-engine-service
+      middlewares:
+        - api-chain
+        - keycloak-auth
+        - strip-api-prefix
+      priority: 90
+      tls:
+        certResolver: letsencrypt
+
+    # Task Marketplace
+    api-tasks:
+      rule: "Host(`ubi-cms.local`) && PathPrefix(`/api/v1/tasks`)"
+      entryPoints:
+        - websecure
+      service: task-marketplace-service
+      middlewares:
+        - api-chain
+        - keycloak-auth
+        - strip-api-prefix
+      priority: 90
+      tls:
+        certResolver: letsencrypt
+
+    # Rewards Engine
+    api-rewards:
+      rule: "Host(`ubi-cms.local`) && PathPrefix(`/api/v1/rewards`)"
+      entryPoints:
+        - websecure
+      service: rewards-engine-service
+      middlewares:
+        - api-chain
+        - keycloak-auth
+        - strip-api-prefix
+      priority: 90
+      tls:
+        certResolver: letsencrypt
+
+    # Reputation Service
+    api-reputation:
+      rule: "Host(`ubi-cms.local`) && PathPrefix(`/api/v1/reputation`)"
+      entryPoints:
+        - websecure
+      service: reputation-service
+      middlewares:
+        - api-chain
+        - keycloak-auth
+        - strip-api-prefix
+      priority: 90
+      tls:
+        certResolver: letsencrypt
+
+    # Agent Control Plane
+    api-agents:
+      rule: "Host(`ubi-cms.local`) && PathPrefix(`/api/v1/agents`)"
+      entryPoints:
+        - websecure
+      service: agent-control-plane-service
+      middlewares:
+        - api-chain
+        - keycloak-auth
+        - strip-api-prefix
+      priority: 90
+      tls:
+        certResolver: letsencrypt
+
+    # Notifications Service
+    api-notifications:
+      rule: "Host(`ubi-cms.local`) && PathPrefix(`/api/v1/notifications`)"
+      entryPoints:
+        - websecure
+      service: notifications-service
+      middlewares:
+        - api-chain
+        - keycloak-auth
+        - strip-api-prefix
+      priority: 90
+      tls:
+        certResolver: letsencrypt
+
+    # Reporting Service
+    api-reports:
+      rule: "Host(`ubi-cms.local`) && PathPrefix(`/api/v1/reports`)"
+      entryPoints:
+        - websecure
+      service: reporting-service
+      middlewares:
+        - api-chain
+        - keycloak-auth
+        - strip-api-prefix
+      priority: 90
+      tls:
+        certResolver: letsencrypt
+
+    # Governance Service
+    api-governance:
+      rule: "Host(`ubi-cms.local`) && PathPrefix(`/api/v1/governance`)"
+      entryPoints:
+        - websecure
+      service: governance-service
+      middlewares:
+        - api-chain
+        - keycloak-auth
+        - strip-api-prefix
+      priority: 90
+      tls:
+        certResolver: letsencrypt
+
+    # Data Vault Service
+    api-vault:
+      rule: "Host(`ubi-cms.local`) && PathPrefix(`/api/v1/vault`)"
+      entryPoints:
+        - websecure
+      service: data-vault-service
+      middlewares:
+        - api-chain
+        - keycloak-auth
+        - strip-api-prefix
+      priority: 90
+      tls:
+        certResolver: letsencrypt
+
+    # =========================================================================
+    # INFRASTRUCTURE ROUTES
+    # =========================================================================
+    
+    # Keycloak IAM
+    keycloak:
+      rule: "Host(`ubi-cms.local`) && PathPrefix(`/keycloak`)"
+      entryPoints:
+        - websecure
+      service: keycloak-service
+      middlewares:
+        - public-chain
+      tls:
+        certResolver: letsencrypt
+
+    # Temporal UI
+    temporal-ui:
+      rule: "Host(`ubi-cms.local`) && PathPrefix(`/temporal`)"
+      entryPoints:
+        - websecure
+      service: temporal-ui-service
+      middlewares:
+        - admin-chain
+      tls:
+        certResolver: letsencrypt
+
+    # Grafana Monitoring
+    grafana:
+      rule: "Host(`ubi-cms.local`) && PathPrefix(`/grafana`)"
+      entryPoints:
+        - websecure
+      service: grafana-service
+      middlewares:
+        - monitoring-chain
+      tls:
+        certResolver: letsencrypt
+
+    # Prometheus Metrics
+    prometheus:
+      rule: "Host(`ubi-cms.local`) && PathPrefix(`/prometheus`)"
+      entryPoints:
+        - websecure
+      service: prometheus-service
+      middlewares:
+        - monitoring-chain
+      tls:
+        certResolver: letsencrypt
+
+    # MinIO Console
+    minio-console:
+      rule: "Host(`ubi-cms.local`) && PathPrefix(`/minio`)"
+      entryPoints:
+        - websecure
+      service: minio-console-service
+      middlewares:
+        - admin-chain
+      tls:
+        certResolver: letsencrypt
+
+    # =========================================================================
+    # TRAEFIK DASHBOARD
+    # =========================================================================
+    
+    traefik-dashboard:
+      rule: "Host(`traefik.ubi-cms.local`)"
+      entryPoints:
+        - websecure
+      service: api@internal
+      middlewares:
+        - admin-chain
+      tls:
+        certResolver: letsencrypt
+
+    # =========================================================================
+    # WEBSOCKET ROUTES
+    # =========================================================================
+    
+    # WebSocket for real-time notifications
+    websocket-notifications:
+      rule: "Host(`ubi-cms.local`) && PathPrefix(`/ws/notifications`)"
+      entryPoints:
+        - websecure
+      service: notifications-service
+      middlewares:
+        - security-headers
+        - keycloak-auth
+      tls:
+        certResolver: letsencrypt
+
+    # WebSocket for agent communication
+    websocket-agents:
+      rule: "Host(`ubi-cms.local`) && PathPrefix(`/ws/agents`)"
+      entryPoints:
+        - websecure
+      service: agent-control-plane-service
+      middlewares:
+        - security-headers
+        - keycloak-auth
+      tls:
+        certResolver: letsencrypt
+
+  # ===========================================================================
+  # SERVICES - Backend Service Definitions
+  # ===========================================================================
+  
+  services:
+    # Frontend Services
+    portal-ui-service:
+      loadBalancer:
+        servers:
+          - url: "http://portal-ui:3000"
+        healthCheck:
+          path: "/health"
+          interval: "10s"
+          timeout: "3s"
+        sticky:
+          cookie:
+            name: "portal_session"
+            secure: true
+            httpOnly: true
+
+    admin-ui-service:
+      loadBalancer:
+        servers:
+          - url: "http://admin-ui:3001"
+        healthCheck:
+          path: "/health"
+          interval: "10s"
+          timeout: "3s"
+
+    # Core API Services
+    auth-service:
+      loadBalancer:
+        servers:
+          - url: "http://auth-service:3000"
+        healthCheck:
+          path: "/health"
+          interval: "10s"
+          timeout: "3s"
+
+    ledger-service:
+      loadBalancer:
+        servers:
+          - url: "http://ledger-service:3000"
+        healthCheck:
+          path: "/health"
+          interval: "10s"
+          timeout: "3s"
+        passHostHeader: true
+
+    ubi-engine-service:
+      loadBalancer:
+        servers:
+          - url: "http://ubi-engine:3000"
+        healthCheck:
+          path: "/health"
+          interval: "10s"
+          timeout: "3s"
+
+    treasury-engine-service:
+      loadBalancer:
+        servers:
+          - url: "http://treasury-engine:3000"
+        healthCheck:
+          path: "/health"
+          interval: "10s"
+          timeout: "3s"
+
+    task-marketplace-service:
+      loadBalancer:
+        servers:
+          - url: "http://task-marketplace:3000"
+        healthCheck:
+          path: "/health"
+          interval: "10s"
+          timeout: "3s"
+
+    rewards-engine-service:
+      loadBalancer:
+        servers:
+          - url: "http://rewards-engine:3000"
+        healthCheck:
+          path: "/health"
+          interval: "10s"
+          timeout: "3s"
+
+    reputation-service:
+      loadBalancer:
+        servers:
+          - url: "http://reputation-service:3000"
+        healthCheck:
+          path: "/health"
+          interval: "10s"
+          timeout: "3s"
+
+    agent-control-plane-service:
+      loadBalancer:
+        servers:
+          - url: "http://agent-control-plane:3000"
+        healthCheck:
+          path: "/health"
+          interval: "10s"
+          timeout: "3s"
+
+    notifications-service:
+      loadBalancer:
+        servers:
+          - url: "http://notifications-service:3000"
+        healthCheck:
+          path: "/health"
+          interval: "10s"
+          timeout: "3s"
+
+    reporting-service:
+      loadBalancer:
+        servers:
+          - url: "http://reporting-service:3000"
+        healthCheck:
+          path: "/health"
+          interval: "10s"
+          timeout: "3s"
+
+    governance-service:
+      loadBalancer:
+        servers:
+          - url: "http://governance-service:3000"
+        healthCheck:
+          path: "/health"
+          interval: "10s"
+          timeout: "3s"
+
+    data-vault-service:
+      loadBalancer:
+        servers:
+          - url: "http://data-vault-service:3000"
+        healthCheck:
+          path: "/health"
+          interval: "10s"
+          timeout: "3s"
+
+    # Infrastructure Services
+    keycloak-service:
+      loadBalancer:
+        servers:
+          - url: "http://keycloak:8080"
+        healthCheck:
+          path: "/health/ready"
+          interval: "10s"
+          timeout: "3s"
+
+    temporal-ui-service:
+      loadBalancer:
+        servers:
+          - url: "http://temporal-ui:8088"
+
+    grafana-service:
+      loadBalancer:
+        servers:
+          - url: "http://grafana:3000"
+        healthCheck:
+          path: "/api/health"
+          interval: "10s"
+          timeout: "3s"
+
+    prometheus-service:
+      loadBalancer:
+        servers:
+          - url: "http://prometheus:9090"
+        healthCheck:
+          path: "/-/healthy"
+          interval: "10s"
+          timeout: "3s"
+
+    minio-console-service:
+      loadBalancer:
+        servers:
+          - url: "http://minio:9001"

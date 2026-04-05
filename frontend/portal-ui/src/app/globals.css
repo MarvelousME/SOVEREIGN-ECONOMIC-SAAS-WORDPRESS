@@ -1,0 +1,191 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ── Base theme token defaults (overridden by data-theme via JS) ── */
+@layer base {
+  :root {
+    --background: 230 45% 6%;
+    --foreground: 45 88% 86%;
+    --card: 230 42% 9%;
+    --card-foreground: 45 88% 86%;
+    --popover: 230 42% 8%;
+    --popover-foreground: 45 88% 86%;
+    --primary: 43 72% 54%;
+    --primary-foreground: 230 45% 6%;
+    --secondary: 28 44% 22%;
+    --secondary-foreground: 45 88% 86%;
+    --muted: 230 36% 13%;
+    --muted-foreground: 45 38% 62%;
+    --accent: 43 82% 64%;
+    --accent-foreground: 230 45% 6%;
+    --destructive: 0 72% 50%;
+    --destructive-foreground: 45 88% 86%;
+    --border: 230 32% 19%;
+    --input: 230 36% 15%;
+    --ring: 43 72% 54%;
+    --radius: 0.25rem;
+    --glow: 43 72% 54%;
+  }
+}
+
+/* ── Base styles ─────────────────────────────────────────────── */
+@layer base {
+  * {
+    @apply border-border;
+    box-sizing: border-box;
+  }
+
+  html {
+    font-feature-settings: "kern" 1, "liga" 1;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    scroll-behavior: smooth;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+    overflow: hidden;
+  }
+
+  /* Selection highlight */
+  ::selection {
+    background: hsl(var(--primary) / 0.3);
+    color: hsl(var(--foreground));
+  }
+}
+
+/* ── Scrollbar styling ────────────────────────────────────────── */
+.thin-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: hsl(var(--border)) transparent;
+}
+.thin-scrollbar::-webkit-scrollbar {
+  width: 4px;
+  height: 4px;
+}
+.thin-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+.thin-scrollbar::-webkit-scrollbar-thumb {
+  background: hsl(var(--border));
+  border-radius: 99px;
+}
+.thin-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: hsl(var(--primary) / 0.5);
+}
+
+/* Global scrollbar */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: hsl(var(--border)) transparent;
+}
+*::-webkit-scrollbar { width: 5px; height: 5px; }
+*::-webkit-scrollbar-track { background: transparent; }
+*::-webkit-scrollbar-thumb { background: hsl(var(--border)); border-radius: 99px; }
+
+/* ── Theme glow utility ──────────────────────────────────────── */
+.glow-primary {
+  box-shadow: 0 0 16px hsl(var(--primary) / 0.45);
+}
+
+/* ── Castellar theme: animated grid background ──────────────── */
+[data-theme="castellar"] body::before,
+[data-theme="obsidian"] body::before,
+[data-theme="matrix"] body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  opacity: 0.03;
+  background-image:
+    linear-gradient(hsl(var(--primary)) 1px, transparent 1px),
+    linear-gradient(90deg, hsl(var(--primary)) 1px, transparent 1px);
+  background-size: 48px 48px;
+}
+
+/* ── Cyberpunk scanline overlay ───────────────────────────────── */
+[data-theme="cyberpunk"] body::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  background: repeating-linear-gradient(
+    0deg,
+    transparent,
+    transparent 2px,
+    rgba(0, 0, 0, 0.05) 2px,
+    rgba(0, 0, 0, 0.05) 4px
+  );
+}
+
+/* ── Nebula: star field ──────────────────────────────────────── */
+[data-theme="nebula"] body::before,
+[data-theme="abyss"] body::before,
+[data-theme="tokyo"] body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  background-image: radial-gradient(1px 1px at 10% 20%, hsl(var(--primary) / 0.4) 0%, transparent 100%),
+    radial-gradient(1px 1px at 30% 70%, hsl(var(--accent) / 0.3) 0%, transparent 100%),
+    radial-gradient(1px 1px at 60% 15%, hsl(var(--primary) / 0.25) 0%, transparent 100%),
+    radial-gradient(1px 1px at 80% 60%, hsl(var(--accent) / 0.2) 0%, transparent 100%),
+    radial-gradient(1px 1px at 50% 90%, hsl(var(--primary) / 0.3) 0%, transparent 100%);
+  background-size: 800px 600px;
+}
+
+/* ── Animations ──────────────────────────────────────────────── */
+@keyframes float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-6px); }
+}
+
+@keyframes shine {
+  0% { background-position: -200% center; }
+  100% { background-position: 200% center; }
+}
+
+@keyframes pulse-glow {
+  0%, 100% { box-shadow: 0 0 8px hsl(var(--primary) / 0.3); }
+  50% { box-shadow: 0 0 24px hsl(var(--primary) / 0.7); }
+}
+
+@keyframes slide-in-right {
+  from { transform: translateX(100%); opacity: 0; }
+  to { transform: translateX(0); opacity: 1; }
+}
+
+@keyframes fade-up {
+  from { transform: translateY(12px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+
+.animate-float { animation: float 3s ease-in-out infinite; }
+.animate-pulse-glow { animation: pulse-glow 2s ease-in-out infinite; }
+.animate-slide-in-right { animation: slide-in-right 0.3s ease-out; }
+.animate-fade-up { animation: fade-up 0.4s ease-out; }
+
+/* ── Recharts overrides ───────────────────────────────────────── */
+.recharts-tooltip-wrapper {
+  outline: none !important;
+}
+.recharts-default-tooltip {
+  background: hsl(var(--popover)) !important;
+  border: 1px solid hsl(var(--border)) !important;
+  border-radius: 8px !important;
+  color: hsl(var(--foreground)) !important;
+}
+.recharts-cartesian-grid-horizontal line,
+.recharts-cartesian-grid-vertical line {
+  stroke: hsl(var(--border)) !important;
+}
+
+/* ── Focus rings ──────────────────────────────────────────────── */
+:focus-visible {
+  outline: 2px solid hsl(var(--ring));
+  outline-offset: 2px;
+}

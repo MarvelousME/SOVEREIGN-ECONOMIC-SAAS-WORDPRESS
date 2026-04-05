@@ -1,0 +1,113 @@
+# Observability stack — runs in parallel with ubi_core on shared overlay ubi_public.
+# Grafana UI: http://127.0.0.1:3010  (avoids conflict with API :3000)
+version: "3.8"
+
+networks:
+  ubi_public:
+    external: true
+
+volumes:
+  prometheus_swarm_data:
+  loki_swarm_data:
+  grafana_swarm_data:
+
+services:
+  prometheus:
+    image: prom/prometheus:v2.54.1
+    command:
+      - "--config.file=/etc/prometheus/prometheus.yml"
+      - "--storage.tsdb.path=/prometheus"
+      - "--web.enable-lifecycle"
+    volumes:
+      - type: bind
+        source: ./prometheus.swarm.yml
+        target: /etc/prometheus/prometheus.yml
+        read_only: true
+      - prometheus_swarm_data:/prometheus
+    ports:
+      - target: 9090
+        published: 9090
+        protocol: tcp
+        mode: ingress
+    networks:
+      - ubi_public
+    deploy:
+      mode: replicated
+      replicas: 1
+      placement:
+        constraints:
+          - node.role == manager
+      restart_policy:
+        condition: on-failure
+
+  loki:
+    image: grafana/loki:3.6.1
+    command: -config.file=/etc/loki/local-config.yaml
+    volumes:
+      - type: bind
+        source: ../configs/loki/local-config.yaml
+        target: /etc/loki/local-config.yaml
+        read_only: true
+      - loki_swarm_data:/loki
+    ports:
+      - target: 3100
+        published: 3100
+        protocol: tcp
+        mode: ingress
+    networks:
+      - ubi_public
+    deploy:
+      mode: replicated
+      replicas: 1
+      restart_policy:
+        condition: on-failure
+
+  grafana:
+    image: grafana/grafana:12.4.0
+    environment:
+      GF_SECURITY_ADMIN_USER: ${GF_ADMIN_USER:-admin}
+      GF_SECURITY_ADMIN_PASSWORD: ${GF_ADMIN_PASSWORD:-admin}
+      GF_USERS_ALLOW_SIGN_UP: "false"
+    volumes:
+      - grafana_swarm_data:/var/lib/grafana
+    ports:
+      - target: 3000
+        published: 3010
+        protocol: tcp
+        mode: ingress
+    networks:
+      - ubi_public
+    deploy:
+      mode: replicated
+      replicas: 1
+      restart_policy:
+        condition: on-failure
+
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib:0.105.0
+    command: ["--config=/etc/otel/otel-collector-config.yaml"]
+    volumes:
+      - type: bind
+        source: ../configs/otel/otel-collector-config.yaml
+        target: /etc/otel/otel-collector-config.yaml
+        read_only: true
+    ports:
+      - target: 4317
+        published: 4317
+        protocol: tcp
+        mode: ingress
+      - target: 4318
+        published: 4318
+        protocol: tcp
+        mode: ingress
+      - target: 8888
+        published: 8888
+        protocol: tcp
+        mode: ingress
+    networks:
+      - ubi_public
+    deploy:
+      mode: replicated
+      replicas: 1
+      restart_policy:
+        condition: on-failure

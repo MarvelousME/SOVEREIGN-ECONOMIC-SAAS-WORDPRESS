@@ -1,0 +1,43 @@
+# security/fail2ban/jail.local
+# Fail2ban jails for Sovereign security stack.
+# Bans are applied via iptables AND pushed to Cloudflare IP firewall rules.
+
+[DEFAULT]
+bantime  = 86400        ; 24 hours
+findtime = 600          ; 10 minute window
+maxretry = 3            ; 3 strikes
+banaction = iptables-multiport
+# Add Cloudflare ban alongside iptables:
+banaction_allports = cloudflare-block
+
+# ── Cowrie SSH honeypot ─────────────────────────────────────────────────────
+[cowrie-ssh]
+enabled  = true
+filter   = cowrie-ssh
+logpath  = /var/log/cowrie/cowrie.log
+maxretry = 1            ; One strike — touching the SSH honeypot = instant ban
+bantime  = 604800       ; 7 days
+
+# ── Glastopf web honeypot ───────────────────────────────────────────────────
+[glastopf-web]
+enabled  = true
+filter   = glastopf-web
+logpath  = /var/log/nginx/trap-access.log
+maxretry = 1
+bantime  = 604800
+
+# ── Suricata IDS alerts ─────────────────────────────────────────────────────
+[suricata-fast]
+enabled  = true
+filter   = suricata-fast
+logpath  = /var/log/suricata/fast.log
+maxretry = 2
+bantime  = 86400
+
+# ── SSH brute force (real SSH port) ─────────────────────────────────────────
+[sshd]
+enabled  = true
+port     = ssh
+logpath  = /var/log/host/auth.log
+maxretry = 5
+bantime  = 3600

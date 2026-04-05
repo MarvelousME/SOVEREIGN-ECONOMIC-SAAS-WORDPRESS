@@ -1,0 +1,157 @@
+# UBI-CMS core stack — Postgres, Redis, NATS, OPA, API (replicated), Portal (replicated).
+# Deploy: docker stack deploy -c stack-core.yml ubi_core
+# Requires: docker network create -d overlay --attachable ubi_public
+version: "3.8"
+
+networks:
+  ubi_public:
+    external: true
+
+volumes:
+  pgdata:
+  redisdata:
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: ${DB_USER:-postgres}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-postgres}
+      POSTGRES_DB: ${DB_NAME:-ubi_cms}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    networks:
+      - ubi_public
+    deploy:
+      mode: replicated
+      replicas: 1
+      placement:
+        constraints:
+          - node.role == manager
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+        max_attempts: 5
+      resources:
+        limits:
+          memory: 1G
+
+  redis:
+    image: redis:7-alpine
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - redisdata:/data
+    networks:
+      - ubi_public
+    deploy:
+      mode: replicated
+      replicas: 1
+      restart_policy:
+        condition: on-failure
+      resources:
+        limits:
+          memory: 256M
+
+  nats:
+    image: nats:2.10-alpine
+    command: ["-js", "-m", "8222"]
+    networks:
+      - ubi_public
+    deploy:
+      mode: replicated
+      replicas: 1
+      restart_policy:
+        condition: on-failure
+
+  opa:
+    image: openpolicyagent/opa:0.69.0
+    command:
+      - "run"
+      - "--server"
+      - "--log-level=info"
+      - "--addr=0.0.0.0:8181"
+      - "/policies"
+    volumes:
+      - type: bind
+        source: ../configs/opa/policies
+        target: /policies
+        read_only: true
+    networks:
+      - ubi_public
+    ports:
+      - target: 8181
+        published: 8181
+        protocol: tcp
+        mode: ingress
+    deploy:
+      mode: replicated
+      replicas: 2
+      update_config:
+        parallelism: 2
+        delay: 2s
+        order: start-first
+      restart_policy:
+        condition: on-failure
+
+  api:
+    image: ${API_IMAGE:-ubi-cms-api:swarm}
+    environment:
+      NODE_ENV: production
+      PORT: "3000"
+      DB_HOST: postgres
+      DB_PORT: "5432"
+      DB_NAME: ${DB_NAME:-ubi_cms}
+      DB_USER: ${DB_USER:-postgres}
+      DB_PASSWORD: ${DB_PASSWORD:-postgres}
+      JWT_SECRET: ${JWT_SECRET:-dev-jwt-secret-change-in-production-must-be-at-least-32-chars}
+      REDIS_HOST: redis
+      REDIS_PORT: "6379"
+      NATS_URL: nats://nats:4222
+      CORS_ORIGIN: ${CORS_ORIGIN:-http://127.0.0.1:3001}
+    networks:
+      - ubi_public
+    ports:
+      - target: 3000
+        published: 3000
+        protocol: tcp
+        mode: ingress
+    deploy:
+      mode: replicated
+      replicas: 3
+      update_config:
+        parallelism: 3
+        delay: 0s
+        order: start-first
+      rollback_config:
+        parallelism: 3
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+      resources:
+        limits:
+          memory: 512M
+
+  portal:
+    image: ${PORTAL_IMAGE:-ubi-cms-portal:swarm}
+    environment:
+      NODE_ENV: production
+      PORT: "3000"
+    networks:
+      - ubi_public
+    ports:
+      - target: 3000
+        published: 3001
+        protocol: tcp
+        mode: ingress
+    deploy:
+      mode: replicated
+      replicas: 2
+      update_config:
+        parallelism: 2
+        delay: 0s
+        order: start-first
+      restart_policy:
+        condition: on-failure
+      resources:
+        limits:
+          memory: 512M

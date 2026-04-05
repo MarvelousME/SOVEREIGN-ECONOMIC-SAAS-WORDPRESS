@@ -1,0 +1,48 @@
+.saaos-keycloak-login-btn,
+.saaos-keycloak-register-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 10px 20px;
+    margin: 5px;
+    background: #00a32a;
+    color: #fff;
+    border-radius: 4px;
+    text-decoration: none;
+    font-weight: 500;
+    transition: background 0.2s;
+}
+
+.saaos-keycloak-login-btn:hover,
+.saaos-keycloak-register-btn:hover {
+    background: #008a20;
+    color: #fff;
+}
+
+.saaos-keycloak-error {
+    padding: 12px;
+    background: #d63638;
+    color: #fff;
+    border-radius: 4px;
+    margin-bottom: 20px;
+}
+
+.saaos-keycloak-sso-button {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    padding: 15px 20px;
+    background: #00a32a;
+    color: #fff;
+    border-radius: 4px;
+    text-decoration: none;
+    font-size: 16px;
+    font-weight: 500;
+    transition: background 0.2s;
+}
+
+.saaos-keycloak-sso-button:hover {
+    background: #008a20;
+    color: #fff;
+}

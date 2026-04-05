@@ -1,0 +1,277 @@
+# Dynamic Service Configuration for Traefik
+
+http:
+  routers:
+    # Auth Service
+    auth-service:
+      rule: "Host(`api.ubi-cms.local`) && PathPrefix(`/api/auth`)"
+      service: auth-service
+      middlewares:
+        - rate-limit
+        - cors-headers
+        - compression
+      entryPoints:
+        - websecure
+      tls:
+        certResolver: letsencrypt
+
+    # UBI Engine
+    ubi-engine:
+      rule: "Host(`api.ubi-cms.local`) && PathPrefix(`/api/ubi`)"
+      service: ubi-engine
+      middlewares:
+        - rate-limit
+        - cors-headers
+        - compression
+        - auth-required
+      entryPoints:
+        - websecure
+      tls:
+        certResolver: letsencrypt
+
+    # Ledger Service
+    ledger-service:
+      rule: "Host(`api.ubi-cms.local`) && PathPrefix(`/api/ledger`)"
+      service: ledger-service
+      middlewares:
+        - rate-limit
+        - cors-headers
+        - compression
+        - auth-required
+      entryPoints:
+        - websecure
+      tls:
+        certResolver: letsencrypt
+
+    # Treasury Engine
+    treasury-engine:
+      rule: "Host(`api.ubi-cms.local`) && PathPrefix(`/api/treasury`)"
+      service: treasury-engine
+      middlewares:
+        - rate-limit-strict
+        - cors-headers
+        - compression
+        - auth-required
+      entryPoints:
+        - websecure
+      tls:
+        certResolver: letsencrypt
+
+    # Governance Service
+    governance-service:
+      rule: "Host(`api.ubi-cms.local`) && PathPrefix(`/api/governance`)"
+      service: governance-service
+      middlewares:
+        - rate-limit
+        - cors-headers
+        - compression
+        - auth-required
+      entryPoints:
+        - websecure
+      tls:
+        certResolver: letsencrypt
+
+    # Task Marketplace
+    task-marketplace:
+      rule: "Host(`api.ubi-cms.local`) && PathPrefix(`/api/tasks`)"
+      service: task-marketplace
+      middlewares:
+        - rate-limit
+        - cors-headers
+        - compression
+        - auth-required
+      entryPoints:
+        - websecure
+      tls:
+        certResolver: letsencrypt
+
+    # Reputation Service
+    reputation-service:
+      rule: "Host(`api.ubi-cms.local`) && PathPrefix(`/api/reputation`)"
+      service: reputation-service
+      middlewares:
+        - rate-limit
+        - cors-headers
+        - compression
+        - auth-required
+      entryPoints:
+        - websecure
+      tls:
+        certResolver: letsencrypt
+
+    # Rewards Engine
+    rewards-engine:
+      rule: "Host(`api.ubi-cms.local`) && PathPrefix(`/api/rewards`)"
+      service: rewards-engine
+      middlewares:
+        - rate-limit
+        - cors-headers
+        - compression
+        - auth-required
+      entryPoints:
+        - websecure
+      tls:
+        certResolver: letsencrypt
+
+    # Notifications Service
+    notifications-service:
+      rule: "Host(`api.ubi-cms.local`) && PathPrefix(`/api/notifications`)"
+      service: notifications-service
+      middlewares:
+        - rate-limit
+        - cors-headers
+        - compression
+        - auth-required
+      entryPoints:
+        - websecure
+      tls:
+        certResolver: letsencrypt
+
+  services:
+    auth-service:
+      loadBalancer:
+        servers:
+          - url: "http://auth-service:3001"
+        healthCheck:
+          path: /health
+          interval: 10s
+          timeout: 3s
+
+    ubi-engine:
+      loadBalancer:
+        servers:
+          - url: "http://ubi-engine:3002"
+        healthCheck:
+          path: /health
+          interval: 10s
+          timeout: 3s
+
+    ledger-service:
+      loadBalancer:
+        servers:
+          - url: "http://ledger-service:3003"
+        healthCheck:
+          path: /health
+          interval: 10s
+          timeout: 3s
+
+    treasury-engine:
+      loadBalancer:
+        servers:
+          - url: "http://treasury-engine:3004"
+        healthCheck:
+          path: /health
+          interval: 10s
+          timeout: 3s
+
+    governance-service:
+      loadBalancer:
+        servers:
+          - url: "http://governance-service:3005"
+        healthCheck:
+          path: /health
+          interval: 10s
+          timeout: 3s
+
+    task-marketplace:
+      loadBalancer:
+        servers:
+          - url: "http://task-marketplace:3006"
+        healthCheck:
+          path: /health
+          interval: 10s
+          timeout: 3s
+
+    reputation-service:
+      loadBalancer:
+        servers:
+          - url: "http://reputation-service:3007"
+        healthCheck:
+          path: /health
+          interval: 10s
+          timeout: 3s
+
+    rewards-engine:
+      loadBalancer:
+        servers:
+          - url: "http://rewards-engine:3008"
+        healthCheck:
+          path: /health
+          interval: 10s
+          timeout: 3s
+
+    notifications-service:
+      loadBalancer:
+        servers:
+          - url: "http://notifications-service:3009"
+        healthCheck:
+          path: /health
+          interval: 10s
+          timeout: 3s
+
+  middlewares:
+    # CORS Headers
+    cors-headers:
+      headers:
+        accessControlAllowMethods:
+          - GET
+          - POST
+          - PUT
+          - DELETE
+          - PATCH
+          - OPTIONS
+        accessControlAllowOriginList:
+          - "http://localhost:3000"
+          - "https://ubi-cms.local"
+        accessControlAllowHeaders:
+          - "Content-Type"
+          - "Authorization"
+          - "X-Correlation-ID"
+          - "X-Tenant-ID"
+        accessControlMaxAge: 100
+        addVaryHeader: true
+
+    # Rate Limiting
+    rate-limit:
+      rateLimit:
+        average: 100
+        burst: 50
+        period: 1m
+
+    rate-limit-strict:
+      rateLimit:
+        average: 20
+        burst: 10
+        period: 1m
+
+    # Compression
+    compression:
+      compress:
+        excludedContentTypes:
+          - text/event-stream
+
+    # Authentication Required
+    auth-required:
+      forwardAuth:
+        address: "http://auth-service:3001/api/auth/verify"
+        authResponseHeaders:
+          - "X-User-ID"
+          - "X-User-Roles"
+          - "X-Tenant-ID"
+
+    # Request/Response Transformation
+    strip-prefix-api:
+      stripPrefix:
+        prefixes:
+          - "/api"
+
+    # Circuit Breaker
+    circuit-breaker:
+      circuitBreaker:
+        expression: "NetworkErrorRatio() > 0.30 || ResponseCodeRatio(500, 600, 0, 600) > 0.25"
+
+    # Retry
+    retry-policy:
+      retry:
+        attempts: 3
+        initialInterval: 100ms

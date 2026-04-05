@@ -1,0 +1,271 @@
+<?php
+pxl_add_custom_widget(
+    array(
+        'name' => 'pxl_gallery_grid',
+        'title' => esc_html__('Tnex Gallery Grid', 'nexros' ),
+        'icon' => 'eicon-posts-grid icon-brand-elementor',
+        'categories' => array('pxltheme-core'),
+        'scripts' => [
+            'imagesloaded',
+            'isotope',
+            'pxl-post-grid',
+        ],
+        'params' => array(
+            'sections' => array(
+                array(
+                    'name' => 'section_content',
+                    'label' => esc_html__('Content', 'nexros'),
+                    'tab' => \Elementor\Controls_Manager::TAB_CONTENT,
+                    'controls' => array(
+                        array(
+                            'name' => 'box',
+                            'label' => esc_html__('List Box', 'nexros'),
+                            'type' => \Elementor\Controls_Manager::REPEATER,
+                            'default' => [],
+                            'controls' => array(
+                                array(
+                                    'name' => 'step',
+                                    'label' => esc_html__('Step', 'nexros'),
+                                    'type' => \Elementor\Controls_Manager::TEXT,
+                                    'label_block' => true,
+                                ),
+                                array(
+                                    'name' => 'image',
+                                    'label' => esc_html__('Image', 'nexros' ),
+                                    'type' => \Elementor\Controls_Manager::MEDIA,
+                                ),
+                            ),
+                            'title_field' => '{{{ step }}}',
+                        ),
+                    ),
+                ),
+                array(
+                    'name' => 'tab_grid',
+                    'label' => esc_html__('Grid', 'nexros' ),
+                    'tab' => \Elementor\Controls_Manager::TAB_SETTINGS,
+                    'controls' => array(
+                        array(
+                            'name' => 'layout_mode',
+                            'label' => esc_html__('Layout Mode', 'nexros' ),
+                            'type' => \Elementor\Controls_Manager::SELECT,
+                            'default' => 'masonry',
+                            'options' => [
+                                'masonry' => esc_html__('Masonry', 'nexros' ),
+                                'fitRows' => esc_html__('Fit Rows', 'nexros' ),
+                            ],
+                        ),
+                        array(
+                            'name' => 'img_size',
+                            'label' => esc_html__('Image Size', 'nexros' ),
+                            'type' => \Elementor\Controls_Manager::TEXT,
+                            'description' => 'Enter image size (Example: "thumbnail", "medium", "large", "full" or other sizes defined by theme). Alternatively enter size in pixels (Default: 370x300 (Width x Height)).',
+                            
+                        ),
+                        array(
+                            'name' => 'pxl_animate',
+                            'label' => esc_html__('Tnex  Animate', 'nexros' ),
+                            'type' => \Elementor\Controls_Manager::SELECT,
+                            'options' => nexros_widget_animate(),
+                            'default' => '',
+                        ),
+                        array(
+                            'name' => 'col_xs',
+                            'label' => esc_html__('Columns XS Devices', 'nexros' ),
+                            'type' => \Elementor\Controls_Manager::SELECT,
+                            'default' => '1',
+                            'options' => [
+                                '1' => '1',
+                                '2' => '2',
+                                '3' => '3',
+                                '4' => '4',
+                                '6' => '6',
+                            ],
+                        ),
+                        array(
+                            'name' => 'col_sm',
+                            'label' => esc_html__('Columns SM Devices', 'nexros' ),
+                            'type' => \Elementor\Controls_Manager::SELECT,
+                            'default' => '1',
+                            'options' => [
+                                '1' => '1',
+                                '2' => '2',
+                                '3' => '3',
+                                '4' => '4',
+                                '6' => '6',
+                            ],
+                        ),
+                        array(
+                            'name' => 'col_md',
+                            'label' => esc_html__('Columns MD Devices', 'nexros' ),
+                            'type' => \Elementor\Controls_Manager::SELECT,
+                            'default' => '2',
+                            'options' => [
+                                '1' => '1',
+                                '2' => '2',
+                                '3' => '3',
+                                '4' => '4',
+                                '6' => '6',
+                            ],
+                        ),
+                        array(
+                            'name' => 'col_lg',
+                            'label' => esc_html__('Columns LG Devices', 'nexros' ),
+                            'type' => \Elementor\Controls_Manager::SELECT,
+                            'default' => '2',
+                            'options' => [
+                                '1' => '1',
+                                '2' => '2',
+                                '3' => '3',
+                                '4' => '4',
+                                '6' => '6',
+                            ],
+                        ),
+                        array(
+                            'name' => 'col_xl',
+                            'label' => esc_html__('Columns XL Devices', 'nexros' ),
+                            'type' => \Elementor\Controls_Manager::SELECT,
+                            'default' => '2',
+                            'options' => [
+                                '1' => '1',
+                                '2' => '2',
+                                '3' => '3',
+                                '4' => '4',
+                                '5' => '5',
+                                '6' => '6',
+                            ],
+                        ),
+                        array(
+                            'name' => 'col_xxl',
+                            'label' => esc_html__('Columns XXL Devices', 'nexros' ),
+                            'type' => \Elementor\Controls_Manager::SELECT,
+                            'default' => 'inherit',
+                            'options' => [
+                                '1' => '1',
+                                '2' => '2',
+                                '3' => '3',
+                                '4' => '4',
+                                '5' => '5',
+                                '6' => '6',
+                                'inherit' => 'Inherit',
+                            ],
+                            'conditions' => [
+                                'relation' => 'or',
+                                'terms' => [
+                                    [
+                                        'terms' => [
+                                            ['name' => 'post_type', 'operator' => '==', 'value' => 'portfolio'],
+                                            ['name' => 'layout_service', 'operator' => 'in', 'value' => ['portfolio-3']]
+                                        ]
+                                    ]
+                                ],
+                            ]
+                        ),
+                        array(
+                            'name' => 'item_padding',
+                            'label' => esc_html__('Item Padding', 'nexros' ),
+                            'type' => \Elementor\Controls_Manager::DIMENSIONS,
+                            'size_units' => [ 'px' ],
+                            'default' => [
+                                'top' => '15',
+                                'right' => '15',
+                                'bottom' => '15',
+                                'left' => '15'
+                            ],
+                            'selectors' => [
+                                '{{WRAPPER}} .pxl-grid-inner' => 'margin-top: -{{TOP}}{{UNIT}}; margin-right: -{{RIGHT}}{{UNIT}}; margin-bottom: -{{BOTTOM}}{{UNIT}}; margin-left: -{{LEFT}}{{UNIT}};',
+                                '{{WRAPPER}} .pxl-grid-inner .pxl-grid-item' => 'padding: {{TOP}}{{UNIT}} {{RIGHT}}{{UNIT}} {{BOTTOM}}{{UNIT}} {{LEFT}}{{UNIT}};',
+                            ],
+                            'control_type' => 'responsive',
+                        ),
+                        array(
+                            'name' => 'grid_masonry',
+                            'label' => esc_html__('Grid Masonry', 'nexros'),
+                            'type' => \Elementor\Controls_Manager::REPEATER,
+                            'controls' => array(
+                                array(
+                                    'name' => 'col_xs_m',
+                                    'label' => esc_html__('Columns: Screen <= 575', 'nexros' ),
+                                    'type' => \Elementor\Controls_Manager::SELECT,
+                                    'default' => '1',
+                                    'options' => [
+                                        '1' => '1',
+                                        '2' => '2',
+                                        '1.5' => '2/3',
+                                        '3' => '3',
+                                        '4' => '4',
+                                        '6' => '6',
+                                    ],
+                                ),
+                                array(
+                                    'name' => 'col_sm_m',
+                                    'label' => esc_html__('Columns: Screen <= 767', 'nexros' ),
+                                    'type' => \Elementor\Controls_Manager::SELECT,
+                                    'default' => '2',
+                                    'options' => [
+                                        '1' => '1',
+                                        '2' => '2',
+                                        '1.5' => '2/3',
+                                        '3' => '3',
+                                        '4' => '4',
+                                        '6' => '6',
+                                    ],
+                                ),
+                                array(
+                                    'name' => 'col_md_m',
+                                    'label' => esc_html__('Columns: Screen <= 991', 'nexros' ),
+                                    'type' => \Elementor\Controls_Manager::SELECT,
+                                    'default' => '2',
+                                    'options' => [
+                                        '1' => '1',
+                                        '2' => '2',
+                                        '1.5' => '2/3',
+                                        '3' => '3',
+                                        '4' => '4',
+                                        '6' => '6',
+                                    ],
+                                ),
+                                array(
+                                    'name' => 'col_lg_m',
+                                    'label' => esc_html__('Columns: Screen <= 1199', 'nexros' ),
+                                    'type' => \Elementor\Controls_Manager::SELECT,
+                                    'default' => '3',
+                                    'options' => [
+                                        '1' => '1',
+                                        '2' => '2',
+                                        '1.5' => '2/3',
+                                        '3' => '3',
+                                        '4' => '4',
+                                        '6' => '6',
+                                        'col-66' => 'Column 66%',
+                                    ],
+                                ),
+                                array(
+                                    'name' => 'col_xl_m',
+                                    'label' => esc_html__('Columns: Screen => 1200', 'nexros' ),
+                                    'type' => \Elementor\Controls_Manager::SELECT,
+                                    'default' => '3',
+                                    'options' => [
+                                        '1' => '1',
+                                        '2' => '2',
+                                        '1.5' => '2/3',
+                                        '3' => '3',
+                                        '4' => '4',
+                                        '6' => '6',
+                                        'col-66' => 'Column 66%',
+                                    ],
+                                ),
+                                array(
+                                    'name' => 'img_size_m',
+                                    'label' => esc_html__('Image Size', 'nexros' ),
+                                    'type' => \Elementor\Controls_Manager::TEXT,
+                                    'description' => 'Enter image size (Example: "thumbnail", "medium", "large", "full" or other sizes defined by theme). Alternatively enter size in pixels (Default: 370x300 (Width x Height)).',
+                                ),
+                            ),
+),
+),
+),
+),
+),
+),
+nexros_get_class_widget_path()
+);

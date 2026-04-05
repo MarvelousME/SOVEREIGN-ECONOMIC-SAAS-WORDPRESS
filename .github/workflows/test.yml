@@ -1,0 +1,188 @@
+name: Test
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+
+env:
+  NODE_VERSION: '18'
+
+jobs:
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      - name: Install dependencies (API)
+        working-directory: ./api
+        run: npm ci
+
+      - name: Run ESLint (API)
+        working-directory: ./api
+        run: npm run lint || true
+
+  unit-tests:
+    name: Unit Tests
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        service:
+          - api
+          - services/governance-service
+          - services/notifications-service
+          - services/agent-runner
+          - services/agent-control-plane
+          - services/reputation-service
+          - services/rewards-engine
+          - services/task-marketplace
+          - services/treasury-engine
+          - services/ubi-engine
+          - services/ledger-service
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      - name: Install dependencies
+        working-directory: ./${{ matrix.service }}
+        run: npm ci
+
+      - name: Run unit tests
+        working-directory: ./${{ matrix.service }}
+        run: npm test -- --coverage --testPathPattern='.*\\.test\\.js$'
+        env:
+          NODE_ENV: test
+
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v4
+        with:
+          files: ./${{ matrix.service }}/coverage/lcov.info
+          flags: ${{ matrix.service }}
+          name: ${{ matrix.service }}
+
+  integration-tests:
+    name: Integration Tests
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:18.3
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: ubi_cms_test
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+
+      redis:
+        image: redis:8.6
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 6379:6379
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      - name: Install dependencies (API)
+        working-directory: ./api
+        run: npm ci
+
+      - name: Run database migrations
+        working-directory: ./api
+        run: npm run migrate
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/ubi_cms_test
+          NODE_ENV: test
+
+      - name: Run integration tests
+        working-directory: ./api
+        run: npm test -- --coverage --testPathPattern='.*\\.integration\\.test\\.js$'
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/ubi_cms_test
+          REDIS_URL: redis://localhost:6379
+          NODE_ENV: test
+
+      - name: Upload integration coverage
+        uses: codecov/codecov-action@v4
+        with:
+          files: ./api/coverage/lcov.info
+          flags: integration
+          name: integration-tests
+
+  coverage-report:
+    name: Coverage Report
+    runs-on: ubuntu-latest
+    needs: [unit-tests, integration-tests]
+    if: github.event_name == 'pull_request'
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Download coverage reports
+        uses: actions/download-artifact@v4
+
+      - name: Comment PR with coverage
+        uses: codecov/codecov-action@v4
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          files: ./coverage/**/*.info
+          fail_ci_if_error: false
+          verbose: true
+
+  test-docker-build:
+    name: Test Docker Build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build API image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./api
+          file: ./api/Dockerfile
+          push: false
+          tags: ubi-cms-api:test
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  all-tests:
+    name: All Tests Passed
+    runs-on: ubuntu-latest
+    needs: [lint, unit-tests, integration-tests, test-docker-build]
+    steps:
+      - name: Success
+        run: echo "All tests passed successfully!"

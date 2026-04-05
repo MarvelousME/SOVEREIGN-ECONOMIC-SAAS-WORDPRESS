@@ -1,0 +1,91 @@
+version: '3.8'
+
+services:
+  referral-service:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: referral-service
+    ports:
+      - "3007:3007"
+    environment:
+      - NODE_ENV=production
+      - PORT=3007
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_NAME=ubi_cms
+      - DB_USER=postgres
+      - DB_PASSWORD=${DB_PASSWORD:-postgres}
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - NATS_URL=nats://nats:4222
+      - REFERRAL_CODE_LENGTH=8
+      - REFERRAL_COOKIE_DAYS=30
+      - MAX_REFERRAL_TIERS=5
+      - TIER_1_PERCENTAGE=1000
+      - TIER_2_PERCENTAGE=500
+      - TIER_3_PERCENTAGE=300
+      - TIER_4_PERCENTAGE=200
+      - TIER_5_PERCENTAGE=100
+      - MAX_REFERRALS_PER_IP=5
+      - MAX_REFERRALS_PER_DEVICE=3
+      - SUSPICIOUS_VELOCITY_MINUTES=60
+      - SUSPICIOUS_VELOCITY_COUNT=10
+      - MAX_REWARD_PER_REFEREE=1000
+      - MAX_DAILY_PAYOUT=10000
+    depends_on:
+      - postgres
+      - redis
+      - nats
+    networks:
+      - ubi-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:3007/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  postgres:
+    image: postgres:15-alpine
+    container_name: referral-postgres
+    environment:
+      - POSTGRES_DB=ubi_cms
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=${DB_PASSWORD:-postgres}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ../../migrations:/docker-entrypoint-initdb.d
+    networks:
+      - ubi-network
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    container_name: referral-redis
+    command: redis-server --appendonly yes
+    volumes:
+      - redis-data:/data
+    networks:
+      - ubi-network
+    restart: unless-stopped
+
+  nats:
+    image: nats:2-alpine
+    container_name: referral-nats
+    command: "-js"
+    ports:
+      - "4222:4222"
+      - "8222:8222"
+    networks:
+      - ubi-network
+    restart: unless-stopped
+
+networks:
+  ubi-network:
+    driver: bridge
+
+volumes:
+  postgres-data:
+  redis-data:

@@ -1,0 +1,114 @@
+# security/suricata/rules/sovereign-custom.rules
+# Custom Suricata rules for Sovereign Economic Ecosystem.
+# SID range: 9000001-9000999 (local custom range)
+
+# ── Honeypot interaction alerts ──────────────────────────────────────────────
+
+# Any connection to SSH honeypot
+alert tcp $EXTERNAL_NET any -> $HONEYPOT_NET 2222 (
+    msg:"SOVEREIGN Honeypot SSH connection attempt";
+    flow:to_server,established;
+    sid:9000001; rev:1;
+    classtype:attempted-recon;
+    metadata:affected_product Sovereign, attack_target Honeypot;
+)
+
+# Any connection to MySQL decoy (Dionaea)
+alert tcp $EXTERNAL_NET any -> $HONEYPOT_NET 3306 (
+    msg:"SOVEREIGN Honeypot MySQL connection attempt";
+    flow:to_server,established;
+    sid:9000002; rev:1;
+    classtype:attempted-recon;
+)
+
+# ── Application layer attacks ────────────────────────────────────────────────
+
+# SQL injection attempt in HTTP requests
+alert http $EXTERNAL_NET any -> $SOVEREIGN_SERVICES $HTTP_PORTS (
+    msg:"SOVEREIGN SQL Injection attempt";
+    flow:to_server,established;
+    http.uri;
+    content:"union"; nocase;
+    content:"select"; nocase; distance:0;
+    sid:9000010; rev:1;
+    classtype:web-application-attack;
+)
+
+# Path traversal attack
+alert http $EXTERNAL_NET any -> $SOVEREIGN_SERVICES $HTTP_PORTS (
+    msg:"SOVEREIGN Path Traversal attempt";
+    flow:to_server,established;
+    http.uri;
+    content:"../";
+    sid:9000011; rev:1;
+    classtype:web-application-attack;
+)
+
+# Attempt to access .env file
+alert http $EXTERNAL_NET any -> $SOVEREIGN_SERVICES $HTTP_PORTS (
+    msg:"SOVEREIGN .env file access attempt";
+    flow:to_server,established;
+    http.uri;
+    content:"/.env";
+    sid:9000012; rev:1;
+    classtype:web-application-attack;
+)
+
+# Mass scanner user agents
+alert http $EXTERNAL_NET any -> $SOVEREIGN_SERVICES any (
+    msg:"SOVEREIGN Known Scanner/Bot user agent";
+    flow:to_server,established;
+    http.user_agent;
+    content:"masscan"; nocase;
+    sid:9000020; rev:1;
+    classtype:attempted-recon;
+)
+
+alert http $EXTERNAL_NET any -> $SOVEREIGN_SERVICES any (
+    msg:"SOVEREIGN Known Scanner/Bot user agent - zgrab";
+    flow:to_server,established;
+    http.user_agent;
+    content:"zgrab"; nocase;
+    sid:9000021; rev:1;
+    classtype:attempted-recon;
+)
+
+# ── Credential stuffing on MiniGPT4 / Sovereign API ─────────────────────────
+
+# Rapid POST requests to auth endpoint (>10 in 5s = brute force)
+alert http $EXTERNAL_NET any -> $SOVEREIGN_SERVICES $APP_PORTS (
+    msg:"SOVEREIGN API brute force detected";
+    flow:to_server,established;
+    http.method;
+    content:"POST";
+    http.uri;
+    content:"/v1/chat";
+    detection_filter:track by_src, count 20, seconds 10;
+    sid:9000030; rev:1;
+    classtype:attempted-user;
+)
+
+# ── Flash VAS endpoint protection ────────────────────────────────────────────
+
+# Rapid Flash purchase requests (fraud prevention)
+alert http $EXTERNAL_NET any -> $SOVEREIGN_SERVICES $APP_PORTS (
+    msg:"SOVEREIGN Flash VAS rapid purchase - possible fraud";
+    flow:to_server,established;
+    http.uri;
+    content:"/v1/flash/";
+    detection_filter:track by_src, count 10, seconds 60;
+    sid:9000040; rev:1;
+    classtype:policy-violation;
+)
+
+# ── Outbound data exfiltration ────────────────────────────────────────────────
+
+# Large outbound transfer from app servers (possible data exfil)
+alert tcp $SOVEREIGN_SERVICES any -> $EXTERNAL_NET any (
+    msg:"SOVEREIGN Possible data exfiltration - large outbound";
+    flow:to_client,established;
+    dsize:>65000;
+    detection_filter:track by_src, count 5, seconds 30;
+    sid:9000050; rev:1;
+    classtype:data-theft;
+)

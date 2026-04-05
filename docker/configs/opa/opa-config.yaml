@@ -1,0 +1,9 @@
+services:
+  opa:
+    bundle:
+      name: ubi-cms-policies
+      path: /etc/opa/policies
+    decision_logs:
+      console: true
+    status:
+      console: true

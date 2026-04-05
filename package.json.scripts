@@ -1,0 +1,14 @@
+{
+  "scripts": {
+    "test": "jest --coverage",
+    "test:unit": "jest --testPathPattern=unit",
+    "test:integration": "jest --testPathPattern=integration",
+    "test:e2e": "playwright test",
+    "test:e2e:ui": "playwright test --ui",
+    "test:e2e:debug": "playwright test --debug",
+    "test:watch": "jest --watch",
+    "test:coverage": "jest --coverage && node scripts/check-coverage.js",
+    "test:load": "k6 run tests/performance/load-test.js",
+    "test:ci": "npm run test:unit && npm run test:integration && npm run test:e2e"
+  }
+}

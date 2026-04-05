@@ -1,0 +1,37 @@
+version: '3.8'
+
+services:
+  landing-page-factory:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: sovereign-landing-page-factory
+    ports:
+      - "3011:3011"
+    environment:
+      - NODE_ENV=production
+      - PORT=3011
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_NAME=ubi_cms
+      - DB_USER=postgres
+      - DB_PASSWORD=${DB_PASSWORD:-postgres}
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - NATS_URL=${NATS_URL:-nats://nats:4222}
+      - CDN_BASE_URL=${CDN_BASE_URL:-https://cdn.sovereign-os.com}
+      - EMBEDDED_BASE_URL=${EMBEDDED_BASE_URL:-https://embed.sovereign-os.com}
+      - LOG_LEVEL=info
+    depends_on:
+      - postgres
+      - nats
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3011/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+networks:
+  default:
+    name: sovereign-network

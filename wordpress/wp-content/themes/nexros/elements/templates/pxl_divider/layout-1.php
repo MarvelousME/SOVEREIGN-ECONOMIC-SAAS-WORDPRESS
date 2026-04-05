@@ -1,0 +1,1 @@
+<div class="pxl-el-divider <?php echo esc_attr($settings['pxl_animate'].' '.$settings['divider_style']); ?> <?php if($settings['dots'] == 'true' ) {echo 'show-dots';}?>" data-wow-delay="<?php echo esc_attr($settings['pxl_animate_delay']); ?>ms"></div>

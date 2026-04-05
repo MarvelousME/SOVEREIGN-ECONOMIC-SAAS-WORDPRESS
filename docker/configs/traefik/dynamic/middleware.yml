@@ -1,0 +1,348 @@
+# =============================================================================
+# Traefik Dynamic Configuration - Middleware
+# Security, Authentication, Rate Limiting, CORS
+# =============================================================================
+
+http:
+  middlewares:
+    # =========================================================================
+    # AUTHENTICATION MIDDLEWARE
+    # =========================================================================
+    
+    # Forward Authentication to Keycloak
+    keycloak-auth:
+      forwardAuth:
+        address: "http://keycloak:8080/realms/ubi-cms/protocol/openid-connect/auth"
+        trustForwardHeader: true
+        authResponseHeaders:
+          - "X-Forwarded-User"
+          - "X-Auth-Request-User"
+          - "X-Auth-Request-Email"
+          - "X-Auth-Request-Access-Token"
+        authRequestHeaders:
+          - "Authorization"
+          - "Cookie"
+
+    # JWT Validation Middleware (custom - requires plugin)
+    jwt-auth:
+      plugin:
+        jwt:
+          secret: "${JWT_SECRET}"
+          alg: "HS256"
+          headerName: "Authorization"
+          headerPrefix: "Bearer "
+          claims:
+            - "sub"
+            - "exp"
+            - "roles"
+
+    # =========================================================================
+    # SECURITY HEADERS
+    # =========================================================================
+    
+    security-headers:
+      headers:
+        # HTTPS Only
+        sslRedirect: true
+        sslForceHost: true
+        sslHost: "ubi-cms.local"
+        
+        # HSTS
+        stsSeconds: 31536000
+        stsIncludeSubdomains: true
+        stsPreload: true
+        
+        # Frame Options
+        frameDeny: true
+        customFrameOptionsValue: "SAMEORIGIN"
+        
+        # Content Security Policy
+        contentSecurityPolicy: >
+          default-src 'self';
+          script-src 'self' 'unsafe-inline' 'unsafe-eval';
+          style-src 'self' 'unsafe-inline';
+          img-src 'self' data: https:;
+          font-src 'self' data:;
+          connect-src 'self' ws: wss:;
+          frame-ancestors 'self';
+          base-uri 'self';
+          form-action 'self';
+        
+        # XSS Protection
+        browserXssFilter: true
+        contentTypeNosniff: true
+        
+        # Referrer Policy
+        referrerPolicy: "strict-origin-when-cross-origin"
+        
+        # Permissions Policy
+        permissionsPolicy: >
+          camera=(),
+          microphone=(),
+          geolocation=(),
+          payment=(),
+          usb=(),
+          magnetometer=()
+        
+        # Custom Security Headers
+        customResponseHeaders:
+          X-Powered-By: ""
+          X-Content-Type-Options: "nosniff"
+          X-Frame-Options: "SAMEORIGIN"
+          X-XSS-Protection: "1; mode=block"
+          Strict-Transport-Security: "max-age=31536000; includeSubDomains; preload"
+
+    # =========================================================================
+    # CORS CONFIGURATION
+    # =========================================================================
+    
+    cors-api:
+      headers:
+        accessControlAllowMethods:
+          - "GET"
+          - "POST"
+          - "PUT"
+          - "PATCH"
+          - "DELETE"
+          - "OPTIONS"
+        accessControlAllowOriginList:
+          - "https://ubi-cms.local"
+          - "https://admin.ubi-cms.local"
+        accessControlAllowHeaders:
+          - "Content-Type"
+          - "Authorization"
+          - "X-Requested-With"
+          - "X-CSRF-Token"
+        accessControlExposeHeaders:
+          - "Content-Length"
+          - "X-Request-Id"
+          - "X-RateLimit-Limit"
+          - "X-RateLimit-Remaining"
+        accessControlAllowCredentials: true
+        accessControlMaxAge: 3600
+
+    cors-permissive:
+      headers:
+        accessControlAllowMethods:
+          - "GET"
+          - "POST"
+          - "PUT"
+          - "DELETE"
+          - "OPTIONS"
+        accessControlAllowOriginList:
+          - "*"
+        accessControlAllowHeaders:
+          - "*"
+        accessControlMaxAge: 3600
+
+    # =========================================================================
+    # RATE LIMITING
+    # =========================================================================
+    
+    # Standard API rate limit
+    rate-limit-api:
+      rateLimit:
+        average: 100
+        period: 1m
+        burst: 200
+        sourceCriterion:
+          requestHeaderName: "X-Forwarded-For"
+
+    # Strict rate limit for authentication endpoints
+    rate-limit-auth:
+      rateLimit:
+        average: 10
+        period: 1m
+        burst: 20
+        sourceCriterion:
+          ipStrategy:
+            depth: 1
+
+    # Relaxed rate limit for static content
+    rate-limit-static:
+      rateLimit:
+        average: 1000
+        period: 1m
+        burst: 2000
+
+    # Very strict for admin endpoints
+    rate-limit-admin:
+      rateLimit:
+        average: 30
+        period: 1m
+        burst: 50
+        sourceCriterion:
+          ipStrategy:
+            depth: 1
+
+    # =========================================================================
+    # IP WHITELISTING
+    # =========================================================================
+    
+    # Admin IP whitelist
+    admin-whitelist:
+      ipWhiteList:
+        sourceRange:
+          - "127.0.0.1/32"
+          - "172.16.0.0/12"
+          - "192.168.0.0/16"
+          - "10.0.0.0/8"
+
+    # Monitoring tools whitelist
+    monitoring-whitelist:
+      ipWhiteList:
+        sourceRange:
+          - "127.0.0.1/32"
+          - "172.16.0.0/12"
+
+    # =========================================================================
+    # COMPRESSION
+    # =========================================================================
+    
+    compression:
+      compress:
+        excludedContentTypes:
+          - "text/event-stream"
+          - "application/grpc"
+        minResponseBodyBytes: 1024
+
+    # =========================================================================
+    # BUFFERING
+    # =========================================================================
+    
+    buffering:
+      buffering:
+        maxRequestBodyBytes: 10485760  # 10MB
+        memRequestBodyBytes: 2097152    # 2MB
+        maxResponseBodyBytes: 10485760  # 10MB
+        memResponseBodyBytes: 2097152   # 2MB
+        retryExpression: "IsNetworkError() && Attempts() < 3"
+
+    # =========================================================================
+    # CIRCUIT BREAKER
+    # =========================================================================
+    
+    circuit-breaker:
+      circuitBreaker:
+        expression: "NetworkErrorRatio() > 0.30 || ResponseCodeRatio(500, 600, 0, 600) > 0.25"
+        checkPeriod: "10s"
+        fallbackDuration: "30s"
+        recoveryDuration: "10s"
+
+    # =========================================================================
+    # RETRY
+    # =========================================================================
+    
+    retry:
+      retry:
+        attempts: 3
+        initialInterval: "100ms"
+
+    # =========================================================================
+    # REDIRECTS
+    # =========================================================================
+    
+    # HTTPS redirect
+    https-redirect:
+      redirectScheme:
+        scheme: https
+        permanent: true
+
+    # WWW redirect
+    www-redirect:
+      redirectRegex:
+        regex: "^https://www\\.(.*)"
+        replacement: "https://${1}"
+        permanent: true
+
+    # =========================================================================
+    # REQUEST/RESPONSE MODIFICATION
+    # =========================================================================
+    
+    # Add request ID
+    request-id:
+      headers:
+        customRequestHeaders:
+          X-Request-Id: "{{ .RequestID }}"
+
+    # Strip path prefix for microservices
+    strip-api-prefix:
+      stripPrefix:
+        prefixes:
+          - "/api/v1"
+
+    # Add prefix
+    add-api-prefix:
+      addPrefix:
+        prefix: "/api"
+
+    # =========================================================================
+    # OBSERVABILITY
+    # =========================================================================
+    
+    # Tracing headers
+    tracing-headers:
+      headers:
+        customRequestHeaders:
+          X-Trace-Id: "{{ .TraceID }}"
+          X-Span-Id: "{{ .SpanID }}"
+
+    # =========================================================================
+    # MIDDLEWARE CHAINS
+    # =========================================================================
+    
+    # API chain: Auth + Security + CORS + Rate Limit + Compression
+    api-chain:
+      chain:
+        middlewares:
+          - security-headers
+          - cors-api
+          - rate-limit-api
+          - compression
+          - request-id
+          - tracing-headers
+
+    # Auth API chain: Strict rate limit + Security
+    auth-chain:
+      chain:
+        middlewares:
+          - security-headers
+          - cors-api
+          - rate-limit-auth
+          - compression
+
+    # Admin chain: Auth + Whitelist + Security + Rate Limit
+    admin-chain:
+      chain:
+        middlewares:
+          - admin-whitelist
+          - keycloak-auth
+          - security-headers
+          - rate-limit-admin
+          - compression
+
+    # Public chain: Security + CORS + Rate Limit
+    public-chain:
+      chain:
+        middlewares:
+          - security-headers
+          - cors-api
+          - rate-limit-static
+          - compression
+
+    # Monitoring chain: Whitelist + Security
+    monitoring-chain:
+      chain:
+        middlewares:
+          - monitoring-whitelist
+          - security-headers
+
+# TCP Middlewares (if needed)
+tcp:
+  middlewares:
+    # IP whitelist for TCP services
+    tcp-whitelist:
+      ipWhiteList:
+        sourceRange:
+          - "127.0.0.1/32"
+          - "172.16.0.0/12"

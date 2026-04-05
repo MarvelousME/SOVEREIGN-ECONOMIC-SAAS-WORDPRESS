@@ -1,0 +1,73 @@
+version: '3.8'
+
+services:
+  analytics-service:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "3004:3004"
+    environment:
+      - NODE_ENV=production
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_NAME=sovereign_saas
+      - DB_USER=postgres
+      - DB_PASSWORD=postgres
+      - CH_HOST=clickhouse
+      - CH_PORT=8123
+      - CH_DATABASE=analytics
+      - JWT_SECRET=${JWT_SECRET:-sovereign-analytics-secret-change-in-production}
+      - LOG_LEVEL=info
+    depends_on:
+      postgres:
+        condition: service_healthy
+      clickhouse:
+        condition: service_healthy
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:3004/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  postgres:
+    image: postgres:15-alpine
+    ports:
+      - "5433:5432"
+    environment:
+      - POSTGRES_DB=sovereign_saas
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ../../migrations:/docker-entrypoint-initdb.d
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  clickhouse:
+    image: clickhouse/clickhouse-server:23.8-alpine
+    ports:
+      - "8124:8123"
+      - "9000:9000"
+    environment:
+      - CLICKHOUSE_DB=analytics
+      - CLICKHOUSE_USER=default
+      - CLICKHOUSE_PASSWORD=
+    volumes:
+      - clickhouse_data:/var/lib/clickhouse
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:8123/ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+  clickhouse_data:

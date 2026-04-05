@@ -1,0 +1,238 @@
+### Ledger Service API Examples
+### Use with REST Client extension in VS Code
+
+@baseUrl = http://localhost:3001
+@tenantId = test-tenant-001
+@authToken = test-token
+
+### Health Check
+GET {{baseUrl}}/health
+
+### Create Asset Account (Cash)
+POST {{baseUrl}}/api/v1/ledger/accounts
+Content-Type: application/json
+x-tenant-id: {{tenantId}}
+Authorization: Bearer {{authToken}}
+
+{
+  "code": "1000",
+  "name": "Cash",
+  "type": "ASSET",
+  "currency": "USD",
+  "metadata": {
+    "description": "Primary cash account"
+  }
+}
+
+### Create Asset Account (Bank)
+POST {{baseUrl}}/api/v1/ledger/accounts
+Content-Type: application/json
+x-tenant-id: {{tenantId}}
+Authorization: Bearer {{authToken}}
+
+{
+  "code": "1100",
+  "name": "Bank Account",
+  "type": "ASSET",
+  "currency": "USD"
+}
+
+### Create Revenue Account
+POST {{baseUrl}}/api/v1/ledger/accounts
+Content-Type: application/json
+x-tenant-id: {{tenantId}}
+Authorization: Bearer {{authToken}}
+
+{
+  "code": "4000",
+  "name": "Service Revenue",
+  "type": "REVENUE",
+  "currency": "USD"
+}
+
+### Create Expense Account
+POST {{baseUrl}}/api/v1/ledger/accounts
+Content-Type: application/json
+x-tenant-id: {{tenantId}}
+Authorization: Bearer {{authToken}}
+
+{
+  "code": "5000",
+  "name": "UBI Distribution Expense",
+  "type": "EXPENSE",
+  "currency": "USD",
+  "metadata": {
+    "purpose": "Monthly UBI payments to users"
+  }
+}
+
+### Get Account by ID
+# Replace with actual account ID
+GET {{baseUrl}}/api/v1/ledger/accounts/YOUR_ACCOUNT_ID
+x-tenant-id: {{tenantId}}
+Authorization: Bearer {{authToken}}
+
+### Get Account Balance
+GET {{baseUrl}}/api/v1/ledger/accounts/YOUR_ACCOUNT_ID/balance
+x-tenant-id: {{tenantId}}
+Authorization: Bearer {{authToken}}
+
+### Create Transaction (Simple Sale)
+# Debit: Cash, Credit: Revenue
+POST {{baseUrl}}/api/v1/ledger/transactions
+Content-Type: application/json
+x-tenant-id: {{tenantId}}
+Authorization: Bearer {{authToken}}
+
+{
+  "reference": "SALE-001",
+  "description": "Product sale - Item XYZ",
+  "entries": [
+    {
+      "account_id": "CASH_ACCOUNT_ID",
+      "type": "DEBIT",
+      "amount": "100.00",
+      "currency": "USD"
+    },
+    {
+      "account_id": "REVENUE_ACCOUNT_ID",
+      "type": "CREDIT",
+      "amount": "100.00",
+      "currency": "USD"
+    }
+  ],
+  "metadata": {
+    "customer_id": "CUST-123",
+    "invoice_id": "INV-001"
+  }
+}
+
+### Create Transaction with Idempotency Key
+POST {{baseUrl}}/api/v1/ledger/transactions
+Content-Type: application/json
+x-tenant-id: {{tenantId}}
+Authorization: Bearer {{authToken}}
+
+{
+  "reference": "SALE-002",
+  "description": "Product sale with idempotency",
+  "idempotency_key": "550e8400-e29b-41d4-a716-446655440000",
+  "entries": [
+    {
+      "account_id": "CASH_ACCOUNT_ID",
+      "type": "DEBIT",
+      "amount": "250.00",
+      "currency": "USD"
+    },
+    {
+      "account_id": "REVENUE_ACCOUNT_ID",
+      "type": "CREDIT",
+      "amount": "250.00",
+      "currency": "USD"
+    }
+  ]
+}
+
+### Create Multi-Entry Transaction (UBI Payment)
+# One debit (UBI reserve), multiple credits (user wallets)
+POST {{baseUrl}}/api/v1/ledger/transactions
+Content-Type: application/json
+x-tenant-id: {{tenantId}}
+Authorization: Bearer {{authToken}}
+
+{
+  "reference": "UBI-PAYMENT-202401",
+  "description": "Monthly UBI distribution",
+  "entries": [
+    {
+      "account_id": "UBI_RESERVE_ACCOUNT_ID",
+      "type": "DEBIT",
+      "amount": "1000.00",
+      "currency": "USD"
+    },
+    {
+      "account_id": "USER_WALLET_1_ID",
+      "type": "CREDIT",
+      "amount": "500.00",
+      "currency": "USD"
+    },
+    {
+      "account_id": "USER_WALLET_2_ID",
+      "type": "CREDIT",
+      "amount": "500.00",
+      "currency": "USD"
+    }
+  ],
+  "metadata": {
+    "payment_cycle": "2024-01",
+    "beneficiary_count": 2
+  }
+}
+
+### Get Transaction by ID
+GET {{baseUrl}}/api/v1/ledger/transactions/YOUR_TRANSACTION_ID
+x-tenant-id: {{tenantId}}
+Authorization: Bearer {{authToken}}
+
+### Reverse a Transaction
+POST {{baseUrl}}/api/v1/ledger/transactions/YOUR_TRANSACTION_ID/reverse
+x-tenant-id: {{tenantId}}
+Authorization: Bearer {{authToken}}
+
+### Get Account Statement (30 days)
+GET {{baseUrl}}/api/v1/ledger/accounts/YOUR_ACCOUNT_ID/statement?start_date=2024-01-01T00:00:00Z&end_date=2024-01-31T23:59:59Z
+x-tenant-id: {{tenantId}}
+Authorization: Bearer {{authToken}}
+
+### Get Account History (Last 50 transactions)
+GET {{baseUrl}}/api/v1/ledger/accounts/YOUR_ACCOUNT_ID/history?limit=50&offset=0
+x-tenant-id: {{tenantId}}
+Authorization: Bearer {{authToken}}
+
+### Error Examples
+
+### Missing Tenant ID (400 Error)
+GET {{baseUrl}}/api/v1/ledger/accounts/123
+Authorization: Bearer {{authToken}}
+
+### Missing Authorization (401 Error)
+GET {{baseUrl}}/api/v1/ledger/accounts/123
+x-tenant-id: {{tenantId}}
+
+### Unbalanced Transaction (400 Error)
+POST {{baseUrl}}/api/v1/ledger/transactions
+Content-Type: application/json
+x-tenant-id: {{tenantId}}
+Authorization: Bearer {{authToken}}
+
+{
+  "reference": "BAD-001",
+  "description": "This will fail - unbalanced",
+  "entries": [
+    {
+      "account_id": "CASH_ACCOUNT_ID",
+      "type": "DEBIT",
+      "amount": "100.00",
+      "currency": "USD"
+    },
+    {
+      "account_id": "REVENUE_ACCOUNT_ID",
+      "type": "CREDIT",
+      "amount": "50.00",
+      "currency": "USD"
+    }
+  ]
+}
+
+### Invalid Account Type (400 Error)
+POST {{baseUrl}}/api/v1/ledger/accounts
+Content-Type: application/json
+x-tenant-id: {{tenantId}}
+Authorization: Bearer {{authToken}}
+
+{
+  "code": "9999",
+  "name": "Invalid Account",
+  "type": "INVALID_TYPE",
+  "currency": "USD"
+}

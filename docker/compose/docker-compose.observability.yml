@@ -1,0 +1,75 @@
+version: '3.8'
+
+services:
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib:latest
+    container_name: ubi-cms-otel-collector
+    command: ["--config=/etc/otel-collector-config.yaml"]
+    volumes:
+      - ./configs/otel:/etc/otel
+    ports:
+      - "4317:4317"
+      - "4318:4318"
+      - "8888:8888"
+      - "8889:8889"
+    networks:
+      - ubi-network
+    depends_on:
+      - prometheus
+      - loki
+
+  prometheus:
+    image: prom/prometheus:v3.10.0
+    container_name: ubi-cms-prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/usr/share/prometheus/console_libraries'
+      - '--web.console.templates=/usr/share/prometheus/consoles'
+    volumes:
+      - ./configs/prometheus:/etc/prometheus
+      - prometheus-data:/prometheus
+    ports:
+      - "9090:9090"
+    networks:
+      - ubi-network
+
+  loki:
+    image: grafana/loki:3.6
+    container_name: ubi-cms-loki
+    command: -config.file=/etc/loki/local-config.yaml
+    volumes:
+      - ./configs/loki:/etc/loki
+      - loki-data:/loki
+    ports:
+      - "3100:3100"
+    networks:
+      - ubi-network
+
+  grafana:
+    image: grafana/grafana:12.4
+    container_name: ubi-cms-grafana
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_PASSWORD:-admin}
+      - GF_USERS_ALLOW_SIGN_UP=false
+    volumes:
+      - ./configs/grafana:/etc/grafana
+      - grafana-data:/var/lib/grafana
+    ports:
+      - "3000:3000"
+    networks:
+      - ubi-network
+    depends_on:
+      - prometheus
+      - loki
+
+networks:
+  ubi-network:
+    name: ubi-cms-network
+    external: true
+
+volumes:
+  prometheus-data:
+  loki-data:
+  grafana-data:

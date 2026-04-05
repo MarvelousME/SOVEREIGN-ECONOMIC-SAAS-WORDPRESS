@@ -1,0 +1,19 @@
+# Ignore all certificate and key files
+*.key
+*.crt
+*.pem
+*.p12
+*.pfx
+*.csr
+*.ext
+*.srl
+
+# Keep the generation script
+!generate-certs.sh
+
+# Keep the README
+!README.md
+
+# Keep Let's Encrypt ACME files (but not keys)
+acme.json
+acme-dev.json

@@ -1,0 +1,12 @@
+{
+  "ignorePatterns": [
+    { "pattern": "^https://api.ubi-platform.com" },
+    { "pattern": "^https://portal.ubi-platform.com" },
+    { "pattern": "^https://admin.ubi-platform.com" },
+    { "pattern": "^wss://" },
+    { "pattern": "^mailto:" }
+  ],
+  "retryOn429": true,
+  "retryCount": 3,
+  "aliveStatusCodes": [200, 206]
+}

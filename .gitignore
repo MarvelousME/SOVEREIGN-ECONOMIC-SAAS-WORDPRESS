@@ -1,0 +1,129 @@
+# =============================================================================
+# UBI / Sovereign monorepo — root ignores (applies repo-wide)
+# Nested packages may add stricter rules via their own .gitignore files.
+# =============================================================================
+
+# --- Secrets & local env (never commit) ---
+.env
+.env.*
+!.env.example
+!.env*.example
+!.env.sample
+!.env.local.example
+*.pem
+*.key
+!**/certs/.gitkeep
+
+# --- Node / JavaScript / TypeScript ---
+node_modules/
+**/node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+.pnpm-store/
+.yarn/*
+!.yarn/patches
+!.yarn/plugins
+!.yarn/releases
+!.yarn/sdks
+!.yarn/versions
+
+# Build & bundler output
+dist/
+build/
+out/
+.next/
+.nuxt/
+.svelte-kit/
+.vite/
+.turbo/
+.cache/
+.parcel-cache/
+*.tsbuildinfo
+*.js.map
+coverage/
+.nyc_output/
+jest-cache/
+.eslintcache
+.stylelintcache
+*.tgz
+
+# --- Testing & E2E ---
+playwright-report/
+test-results/
+blob-report/
+playwright/.cache/
+
+# --- WordPress (wp-content in repo; omit runtime & user-generated) ---
+wordpress/wp-content/uploads/
+wordpress/wp-content/upgrade/
+wordpress/wp-content/cache/
+wordpress/wp-content/backups/
+wordpress/wp-content/debug.log
+wordpress/wp-content/*.log
+
+# --- PHP (themes/plugins tooling) ---
+vendor/
+composer.phar
+.phpunit.result.cache
+
+# --- Python (if/when added) ---
+__pycache__/
+*.py[cod]
+*$py.class
+.Python
+.venv/
+venv/
+.envrc
+.ruff_cache/
+.mypy_cache/
+.pytest_cache/
+*.egg-info/
+.eggs/
+
+# --- Go / Rust (if/when added) ---
+bin/
+target/
+
+# --- Docker / Podman / local compose ---
+*.log
+docker-compose.override.yml
+compose.override.yml
+.docker/
+
+# --- IDE & editors ---
+.idea/
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+*.swp
+*.swo
+*~
+.project
+.classpath
+.settings/
+
+# --- OS ---
+.DS_Store
+.DS_Store?
+._*
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# --- Local data / IDE (do not ship) ---
+.pgdata/
+.cursor/
+
+# --- Misc ---
+*.local.md
+.tmp/
+temp/
+tmp/
+*.bak
+*.orig
+*.rej

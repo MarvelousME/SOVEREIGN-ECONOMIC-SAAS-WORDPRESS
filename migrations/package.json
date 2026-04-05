@@ -1,0 +1,15 @@
+{
+  "name": "ubi-cms-migrations",
+  "version": "1.0.0",
+  "description": "Database migrations for UBI-CMS",
+  "scripts": {
+    "migrate:up": "node-pg-migrate up",
+    "migrate:down": "node-pg-migrate down",
+    "migrate:create": "node-pg-migrate create",
+    "migrate:status": "node-pg-migrate status"
+  },
+  "dependencies": {
+    "node-pg-migrate": "^6.2.2",
+    "pg": "^8.11.3"
+  }
+}

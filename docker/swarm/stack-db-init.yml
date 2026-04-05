@@ -1,0 +1,63 @@
+# One-shot database init for Swarm Postgres (same SQL as scripts/swarm-db-init.*).
+# Deploy AFTER ubi_core so service "postgres" is reachable on ubi_public.
+#
+#   cd docker/swarm
+#   docker stack deploy -c stack-db-init.yml ubi_db_init
+#
+# Logs: docker service logs -f ubi_db_init_dbinit
+# Remove when finished (optional; re-deploy is idempotent for dev SQL):
+#   docker stack rm ubi_db_init
+#
+# Set at deploy time:
+#   SWARM_DB_MODE=full   → migrations/000_run_all_migrations.sql only (see README)
+version: "3.8"
+
+networks:
+  ubi_public:
+    external: true
+
+services:
+  dbinit:
+    image: postgres:16-alpine
+    networks:
+      - ubi_public
+    environment:
+      PGHOST: postgres
+      PGUSER: ${DB_USER:-postgres}
+      PGPASSWORD: ${DB_PASSWORD:-postgres}
+      PGDATABASE: ${DB_NAME:-ubi_cms}
+      INIT_MODE: ${SWARM_DB_MODE:-dev}
+    volumes:
+      - type: bind
+        source: ../../api
+        target: /seed/api
+        read_only: true
+      - type: bind
+        source: ../../migrations
+        target: /seed/migrations
+        read_only: true
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        set -e
+        echo "Waiting for Postgres at $$PGHOST / $$PGDATABASE ..."
+        until pg_isready -h "$$PGHOST" -U "$$PGUSER" -d "$$PGDATABASE"; do sleep 2; done
+        if [ "$$INIT_MODE" = "full" ]; then
+          echo "INIT_MODE=full: running migrations/000_run_all_migrations.sql"
+          cd /seed/migrations
+          psql -h "$$PGHOST" -U "$$PGUSER" -d "$$PGDATABASE" -v ON_ERROR_STOP=1 -f 000_run_all_migrations.sql
+        else
+          echo "INIT_MODE=dev: dev-schema -> dev-seed -> dev-patch"
+          psql -h "$$PGHOST" -U "$$PGUSER" -d "$$PGDATABASE" -v ON_ERROR_STOP=1 -f /seed/api/dev-schema.sql
+          psql -h "$$PGHOST" -U "$$PGUSER" -d "$$PGDATABASE" -v ON_ERROR_STOP=1 -f /seed/api/dev-seed.sql
+          psql -h "$$PGHOST" -U "$$PGUSER" -d "$$PGDATABASE" -v ON_ERROR_STOP=1 -f /seed/api/dev-patch.sql
+        fi
+        echo "UBI-CMS dbinit completed successfully."
+    deploy:
+      mode: replicated
+      replicas: 1
+      restart_policy:
+        condition: none
+      placement:
+        constraints:
+          - node.role == manager

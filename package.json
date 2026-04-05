@@ -1,0 +1,16 @@
+{
+  "name": "ubi-cms",
+  "version": "1.0.0",
+  "private": true,
+  "description": "UBI CMS monorepo — local stack helpers",
+  "scripts": {
+    "local:up": "docker compose -f docker-compose.local.yml up --build -d",
+    "local:down": "docker compose -f docker-compose.local.yml down",
+    "local:logs": "docker compose -f docker-compose.local.yml logs -f api",
+    "local:portal": "npm run dev --prefix frontend/portal-ui",
+    "local:portal:install": "npm install --prefix frontend/portal-ui",
+    "local:portal:build": "npm run build --prefix frontend/portal-ui",
+    "local:portal:start": "npm run start --prefix frontend/portal-ui",
+    "local:api:shell": "npm install --prefix api"
+  }
+}

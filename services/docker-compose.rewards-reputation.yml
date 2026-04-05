@@ -1,0 +1,172 @@
+version: '3.8'
+
+services:
+  # Rewards Engine Service
+  rewards-engine:
+    build:
+      context: ./rewards-engine
+      dockerfile: Dockerfile
+    container_name: ubi-rewards-engine
+    ports:
+      - "3003:3003"
+    environment:
+      NODE_ENV: production
+      PORT: 3003
+      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+      REDIS_URL: redis://redis:6379
+      NATS_URL: nats://nats:4222
+      REPUTATION_SERVICE_URL: http://reputation-service:3002
+      LEDGER_SERVICE_URL: http://ledger-service:3001
+      JWT_SECRET: ${JWT_SECRET}
+    depends_on:
+      - postgres
+      - redis
+      - nats
+    networks:
+      - ubi-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3003/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # Reputation Service
+  reputation-service:
+    build:
+      context: ./reputation-service
+      dockerfile: Dockerfile
+    container_name: ubi-reputation-service
+    ports:
+      - "3002:3002"
+    environment:
+      NODE_ENV: production
+      PORT: 3002
+      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+      REDIS_URL: redis://redis:6379
+      NATS_URL: nats://nats:4222
+      REWARDS_SERVICE_URL: http://rewards-engine:3003
+      JWT_SECRET: ${JWT_SECRET}
+    depends_on:
+      - postgres
+      - redis
+      - nats
+    networks:
+      - ubi-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3002/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # PostgreSQL Database (shared)
+  postgres:
+    image: postgres:15-alpine
+    container_name: ubi-postgres
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-ubi_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-ubi_password}
+      POSTGRES_DB: ${POSTGRES_DB:-ubi_cms}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ../migrations:/docker-entrypoint-initdb.d
+    networks:
+      - ubi-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-ubi_user}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Redis Cache
+  redis:
+    image: redis:7-alpine
+    container_name: ubi-redis
+    command: redis-server --appendonly yes
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - ubi-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # NATS Event Bus
+  nats:
+    image: nats:2.9-alpine
+    container_name: ubi-nats
+    ports:
+      - "4222:4222"  # Client connections
+      - "8222:8222"  # HTTP management
+      - "6222:6222"  # Cluster connections
+    command: "--http_port 8222 --js"
+    networks:
+      - ubi-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:8222/healthz"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Redis Commander (Optional - for debugging)
+  redis-commander:
+    image: rediscommander/redis-commander:latest
+    container_name: ubi-redis-commander
+    environment:
+      REDIS_HOSTS: local:redis:6379
+    ports:
+      - "8081:8081"
+    networks:
+      - ubi-network
+    depends_on:
+      - redis
+    restart: unless-stopped
+    profiles:
+      - debug
+
+  # pgAdmin (Optional - for database management)
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: ubi-pgadmin
+    environment:
+      PGADMIN_DEFAULT_EMAIL: ${PGADMIN_EMAIL:-admin@ubi.local}
+      PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_PASSWORD:-admin}
+      PGADMIN_CONFIG_SERVER_MODE: 'False'
+    ports:
+      - "5050:80"
+    volumes:
+      - pgadmin_data:/var/lib/pgadmin
+    networks:
+      - ubi-network
+    depends_on:
+      - postgres
+    restart: unless-stopped
+    profiles:
+      - debug
+
+volumes:
+  postgres_data:
+    driver: local
+  redis_data:
+    driver: local
+  pgadmin_data:
+    driver: local
+
+networks:
+  ubi-network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.25.0.0/16

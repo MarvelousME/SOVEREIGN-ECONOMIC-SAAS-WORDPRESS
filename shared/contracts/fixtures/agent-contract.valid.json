@@ -1,0 +1,21 @@
+{
+  "tenant_id": "tenant-demo",
+  "workspace_id": "workspace-demo",
+  "objective": "Produce a bounded summary of ledger activity for review",
+  "entity_ref": null,
+  "context_package": {
+    "sources": [],
+    "notes": "Fixture for CI schema validation"
+  },
+  "tool_permissions": ["read:ledger", "read:audit"],
+  "policy_constraints": {
+    "pii": "redact"
+  },
+  "approval_policy": {
+    "mode": "human_in_loop",
+    "max_auto_steps": 3
+  },
+  "success_metric": "reviewer_approved",
+  "time_budget": 600,
+  "cost_budget": 2.5
+}

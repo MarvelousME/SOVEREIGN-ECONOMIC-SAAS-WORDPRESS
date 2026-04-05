@@ -1,0 +1,12 @@
+node_modules
+.next
+.env
+.env.*
+!.env.example
+*.md
+.git
+.gitignore
+Dockerfile
+docker-compose*
+coverage
+.nyc_output

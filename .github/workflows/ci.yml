@@ -1,0 +1,163 @@
+name: CI
+
+on:
+  push:
+    branches: [main, master, develop]
+  pull_request:
+    branches: [main, master, develop]
+
+env:
+  NODE_VERSION: '20'
+
+jobs:
+  # ─── API: lint, test, coverage ─────────────────────────────────────────────
+  api-test:
+    name: API — Test & Coverage
+    runs-on: ubuntu-latest
+
+    env:
+      NODE_ENV: test
+      JWT_SECRET: ci-test-jwt-secret-at-least-32-chars-long
+      DB_HOST: localhost
+      DB_PORT: 5432
+      DB_NAME: ubi_test
+      DB_USER: postgres
+      DB_PASSWORD: postgres
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: api/package-lock.json
+
+      - name: Install API dependencies
+        run: npm ci
+        working-directory: api
+
+      - name: Run API tests with coverage
+        run: npm run test:ci
+        working-directory: api
+
+      - name: Upload coverage report
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: api-coverage
+          path: api/coverage
+          retention-days: 7
+
+  # ─── Frontend: type-check, lint, build ────────────────────────────────────
+  portal-build:
+    name: Portal UI — Type-check, Lint & Build
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: frontend/portal-ui
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: frontend/portal-ui/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Type check
+        run: npm run type-check
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Build
+        run: npm run build
+        env:
+          NEXT_PUBLIC_API_URL: http://localhost:3000/api/v1
+          NEXT_PUBLIC_WS_URL:  ws://localhost:3000
+
+  # ─── Security: secret scanning ────────────────────────────────────────────
+  secret-scan:
+    name: Secret Scan
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Detect secrets
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  # ─── Shared contracts: Ajv (draft 2020-12) + fixtures ────────────────────
+  contracts-validate:
+    name: Shared contracts — Ajv schema + fixtures
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: shared/contracts/package-lock.json
+
+      - name: Install contract tooling
+        run: npm ci
+        working-directory: shared/contracts
+
+      - name: Validate schema (compile + valid/invalid fixtures)
+        run: npm run validate
+        working-directory: shared/contracts
+
+  # ─── Docker: build images ─────────────────────────────────────────────────
+  docker-build:
+    name: Docker — Build Images
+    runs-on: ubuntu-latest
+    needs: [api-test, portal-build, contracts-validate]
+    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build API image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./api
+          file: ./api/Dockerfile
+          push: false
+          tags: ubi-api:${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Build Portal UI image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./frontend/portal-ui
+          file: ./frontend/portal-ui/Dockerfile
+          push: false
+          tags: ubi-portal-ui:${{ github.sha }}
+          build-args: |
+            NEXT_PUBLIC_API_URL=https://api.ubi-platform.com/api/v1
+            NEXT_PUBLIC_WS_URL=wss://api.ubi-platform.com
+          cache-from: type=gha
+          cache-to: type=gha,mode=max

@@ -1,0 +1,4 @@
+{
+  "tenant_id": "only-partial",
+  "objective": "Missing workspace_id, budgets, and other required fields"
+}

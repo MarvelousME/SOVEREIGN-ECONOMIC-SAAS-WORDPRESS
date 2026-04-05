@@ -1,0 +1,209 @@
+.pxl-box-hover1 {
+	.pxl-item--inner {
+		position: relative;
+		z-index: 1;
+		&:before, &:after {
+			content: '';
+			position: absolute;
+			top: 0;
+			height: 100%;
+			@include transition(all .25s cubic-bezier(.645,.045,.355,1));
+			background-color: $primary_color;
+			@include border-radius(5px);
+		}
+		&:before {
+			left: 0;
+			right: 0;
+			transform-origin: right center;
+			-webkit-transform-origin: right center;
+			@include transform(scale(0, 1));
+			@include transition(transform 0.3s cubic-bezier(0.37, 0.31, 0.2, 0.85));
+			z-index: -1;
+		}
+		&:after {
+			opacity: 0.3;
+			left: 25px;
+			right: 25px;
+			z-index: -2;
+			height: 16px;
+			top: 100%;
+			@include border-radius(0 0 5px 5px);
+			transform: scaleY(0);
+			transform-origin: top center;
+		}
+		&:hover {
+			&:before {
+				transform-origin: left center;
+		        -webkit-transform-origin: left center;
+		        @include transform(scale(1, 1));
+			}
+			&:after {
+				transform: scaleY(1);
+				-webkit-transition-delay: 0.16s;
+                transition-delay: 0.16s;
+			}
+		}
+	}
+}
+
+.hover-imge-effect1 {
+	position: relative;
+	overflow: hidden;
+	a {
+		display: block;
+		&:before {
+			position: absolute;
+			top: 50%;
+			left: 50%;
+			z-index: 2;
+			display: block;
+			content: '';
+			width: 0;
+			height: 0;
+			background: rgba(255, 255, 255, .2);
+			border-radius: 100%;
+			-webkit-transform: translate(-50%, -50%);
+			transform: translate(-50%, -50%);
+			opacity: 0;
+		}
+	}
+}
+.hover-imge-effect2 {
+	position: relative;
+	overflow: hidden;
+	img {
+		@include transition(all 0.5s ease);
+		transform: scale(1);
+	}
+}
+
+.hover-imge-effect2-up {
+	position: relative;
+	overflow: hidden;
+	img {
+		@include transition(all 0.6s);
+	}
+}
+
+.hover-imge-effect3 {
+	position: relative;
+	overflow: hidden;
+	img {
+		@include transition(all 1.5s cubic-bezier(.19,1,.22,1));
+	}
+}
+
+.hover-imge-effect4 {
+	position: relative;
+	overflow: hidden;
+	.hover-item {
+		width: 50%;
+		height: 50%;
+		background-color: rgba(0,0,0,.6);
+		position: absolute;
+		-webkit-transition: all .3s cubic-bezier(.39,.575,.565,1)0s;
+		-khtml-transition: all .3s cubic-bezier(.39,.575,.565,1)0s;
+		-moz-transition: all .3s cubic-bezier(.39,.575,.565,1)0s;
+		-ms-transition: all .3s cubic-bezier(.39,.575,.565,1)0s;
+		-o-transition: all .3s cubic-bezier(.39,.575,.565,1)0s;
+		transition: all .3s cubic-bezier(.39,.575,.565,1)0s;
+		opacity: 0;
+		&.hover-item1 {
+			top: 0;
+			left: 0;
+		}
+		&.hover-item2 {
+			top: 0;
+			left: 50%;
+		}
+		&.hover-item3 {
+			left: 50%;
+			top: 50%;
+		}
+		&.hover-item4 {
+			left: 0;
+			top: 50%;
+		}
+	}
+}
+
+.pxl-post--inner:hover, .pxl-item--inner:hover {
+	.hover-imge-effect1 a:before {
+		-webkit-animation: img_circle 0.65s;
+		animation: img_circle 0.65s;
+	}
+	.hover-imge-effect2 img {
+		-webkit-transform: scale(1.07,1.07) translatex(-10px);
+		transform: scale(1.07,1.07) translatex(-10px);
+	}
+	.hover-imge-effect3 img {
+		@include transform(scale(1.06));
+	}
+	.hover-imge-effect4 {
+		.hover-item.hover-item1 {
+			left: 50%;
+			top: 0;
+			opacity: 1;
+		}
+		.hover-item.hover-item2 {
+			left: 50%;
+			top: 50%;
+			opacity: 1;
+		}
+		.hover-item.hover-item3 {
+			left: 0%;
+			top: 50%;
+			opacity: 1;
+		}
+		.hover-item.hover-item4 {
+			left: 0%;
+			top: 0%;
+			opacity: 1;
+		}
+	}
+}
+
+.pxl-flipbox {
+	position: relative;
+	perspective: 1200px;
+	.pxl-flipbox--front, .pxl-flipbox--back {
+		transform-style: preserve-3d;
+		-webkit-backface-visibility: hidden;
+		backface-visibility: hidden;
+	}
+	.pxl-flipbox--back {
+		height: auto;
+		width: 100%;
+		position: absolute;
+		top: 50%;
+		left: 0;
+		transform: rotateY(180deg) translateZ(1px) translateY(-50%);
+		z-index: 99;
+	}
+	.pxl-flipbox--wrap {
+		position: relative;
+		transition-property: box-shadow,transform;
+		transition-duration: .6s;
+		transition-timing-function: cubic-bezier(.4,0,.2,1);
+		transform-style: preserve-3d;
+	}
+	&:hover {
+		.pxl-flipbox--wrap {
+			transform: rotateY(180deg);
+			transform-origin: 50% 50%;
+		}
+	}
+}
+
+body.rtl {
+	.pxl-box-hover1 .pxl-item--inner {
+		&:before {
+			transform-origin: left center;
+			-webkit-transform-origin: left center;
+		}
+		&:hover:before {
+			transform-origin: right center;
+		       -webkit-transform-origin: right center;
+		}
+	}
+}

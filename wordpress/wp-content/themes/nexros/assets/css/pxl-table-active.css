@@ -1,0 +1,46 @@
+/* PXL Table Active Rows Styles */
+.pxl-table__wrap .pxl-row-active {
+    background-color: #f0f7ff !important;
+}
+
+.pxl-table__wrap .pxl-row-active td,
+.pxl-table__wrap .pxl-row-active th {
+    background-color: #f0f7ff !important;
+    border-color: #2271b1 !important;
+    color: #2271b1 !important;
+}
+
+.pxl-table__wrap .pxl-row-active:hover {
+    background-color: #e6f3ff !important;
+}
+
+.pxl-table__wrap .pxl-row-active:hover td,
+.pxl-table__wrap .pxl-row-active:hover th {
+    background-color: #e6f3ff !important;
+}
+
+/* Mobile table active styles */
+.pxl-table__mobile .pxl-table__mobile-column.pxl-row-active {
+    background-color: #f0f7ff !important;
+    border-color: #2271b1 !important;
+    box-shadow: 0 2px 8px rgba(34, 113, 177, 0.15);
+}
+
+.pxl-table__mobile .pxl-table__mobile-column.pxl-row-active .pxl-table__mobile-header,
+.pxl-table__mobile .pxl-table__mobile-column.pxl-row-active .pxl-table__mobile-cell--label,
+.pxl-table__mobile .pxl-table__mobile-column.pxl-row-active .pxl-table__mobile-cell--value {
+    color: #2271b1 !important;
+}
+
+/* Animation for active state */
+.pxl-table__wrap tr {
+    transition: all 0.3s ease;
+}
+
+.pxl-table__wrap .pxl-row-active {
+    box-shadow: 0 2px 8px rgba(34, 113, 177, 0.15);
+}
+
+.pxl-table__mobile .pxl-table__mobile-column {
+    transition: all 0.3s ease;
+}

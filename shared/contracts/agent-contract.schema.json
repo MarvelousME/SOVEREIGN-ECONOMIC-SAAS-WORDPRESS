@@ -1,0 +1,56 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Sovereign Economic SaaS Agent Run Contract",
+  "description": "Structured request envelope for bounded agent/orchestrator runs. Aligned with SAAOS agent-contract conventions for cross-tooling and audits.",
+  "type": "object",
+  "required": [
+    "tenant_id",
+    "workspace_id",
+    "objective",
+    "context_package",
+    "tool_permissions",
+    "policy_constraints",
+    "approval_policy",
+    "success_metric",
+    "time_budget",
+    "cost_budget"
+  ],
+  "properties": {
+    "tenant_id": {
+      "type": "string"
+    },
+    "workspace_id": {
+      "type": "string"
+    },
+    "objective": {
+      "type": "string"
+    },
+    "entity_ref": {
+      "type": ["string", "null"]
+    },
+    "context_package": {
+      "type": "object"
+    },
+    "tool_permissions": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "policy_constraints": {
+      "type": "object"
+    },
+    "approval_policy": {
+      "type": "object"
+    },
+    "success_metric": {
+      "type": "string"
+    },
+    "time_budget": {
+      "type": "number"
+    },
+    "cost_budget": {
+      "type": "number"
+    }
+  }
+}

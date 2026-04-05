@@ -1,0 +1,244 @@
+{
+  "realm": "ubi-cms",
+  "enabled": true,
+  "displayName": "UBI CMS Platform",
+  "displayNameHtml": "<div class=\"kc-logo-text\"><span>UBI CMS</span></div>",
+  "accessTokenLifespan": 900,
+  "accessTokenLifespanForImplicitFlow": 900,
+  "ssoSessionIdleTimeout": 1800,
+  "ssoSessionMaxLifespan": 36000,
+  "offlineSessionIdleTimeout": 2592000,
+  "accessCodeLifespan": 60,
+  "accessCodeLifespanUserAction": 300,
+  "accessCodeLifespanLogin": 1800,
+  "registrationAllowed": true,
+  "registrationEmailAsUsername": false,
+  "rememberMe": true,
+  "verifyEmail": true,
+  "loginWithEmailAllowed": true,
+  "duplicateEmailsAllowed": false,
+  "resetPasswordAllowed": true,
+  "editUsernameAllowed": false,
+  "bruteForceProtected": true,
+  "permanentLockout": false,
+  "maxFailureWaitSeconds": 900,
+  "minimumQuickLoginWaitSeconds": 60,
+  "waitIncrementSeconds": 60,
+  "quickLoginCheckMilliSeconds": 1000,
+  "maxDeltaTimeSeconds": 43200,
+  "failureFactor": 5,
+  "passwordPolicy": "length(8) and upperCase(1) and lowerCase(1) and digits(1) and specialChars(1) and notUsername and passwordHistory(3)",
+  "otpPolicyType": "totp",
+  "otpPolicyAlgorithm": "HmacSHA1",
+  "otpPolicyInitialCounter": 0,
+  "otpPolicyDigits": 6,
+  "otpPolicyLookAheadWindow": 1,
+  "otpPolicyPeriod": 30,
+  "roles": {
+    "realm": [
+      {
+        "name": "admin",
+        "description": "Administrator role"
+      },
+      {
+        "name": "user",
+        "description": "Standard user role"
+      },
+      {
+        "name": "agent_creator",
+        "description": "Can create and manage AI agents"
+      },
+      {
+        "name": "treasury_admin",
+        "description": "Treasury administrator"
+      },
+      {
+        "name": "ubi_admin",
+        "description": "UBI administrator"
+      }
+    ]
+  },
+  "clients": [
+    {
+      "clientId": "portal-ui",
+      "name": "Portal UI",
+      "enabled": true,
+      "publicClient": true,
+      "protocol": "openid-connect",
+      "redirectUris": [
+        "http://localhost:3000/*",
+        "https://portal.ubicsm.com/*"
+      ],
+      "webOrigins": [
+        "http://localhost:3000",
+        "https://portal.ubicsm.com"
+      ],
+      "standardFlowEnabled": true,
+      "implicitFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "attributes": {
+        "pkce.code.challenge.method": "S256"
+      }
+    },
+    {
+      "clientId": "admin-ui",
+      "name": "Admin UI",
+      "enabled": true,
+      "publicClient": true,
+      "protocol": "openid-connect",
+      "redirectUris": [
+        "http://localhost:3001/*",
+        "https://admin.ubicsm.com/*"
+      ],
+      "webOrigins": [
+        "http://localhost:3001",
+        "https://admin.ubicsm.com"
+      ],
+      "standardFlowEnabled": true,
+      "implicitFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "attributes": {
+        "pkce.code.challenge.method": "S256"
+      }
+    },
+    {
+      "clientId": "api-gateway",
+      "name": "API Gateway",
+      "enabled": true,
+      "publicClient": false,
+      "protocol": "openid-connect",
+      "bearerOnly": false,
+      "standardFlowEnabled": true,
+      "directAccessGrantsEnabled": true,
+      "serviceAccountsEnabled": true,
+      "authorizationServicesEnabled": false
+    }
+  ],
+  "clientScopes": [
+    {
+      "name": "tenant",
+      "description": "Tenant information",
+      "protocol": "openid-connect",
+      "attributes": {
+        "include.in.token.scope": "true",
+        "display.on.consent.screen": "false"
+      },
+      "protocolMappers": [
+        {
+          "name": "tenant_id",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-usermodel-attribute-mapper",
+          "consentRequired": false,
+          "config": {
+            "user.attribute": "tenant_id",
+            "claim.name": "tenant_id",
+            "jsonType.label": "String",
+            "id.token.claim": "true",
+            "access.token.claim": "true",
+            "userinfo.token.claim": "true"
+          }
+        },
+        {
+          "name": "tenant_slug",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-usermodel-attribute-mapper",
+          "consentRequired": false,
+          "config": {
+            "user.attribute": "tenant_slug",
+            "claim.name": "tenant_slug",
+            "jsonType.label": "String",
+            "id.token.claim": "true",
+            "access.token.claim": "true",
+            "userinfo.token.claim": "true"
+          }
+        },
+        {
+          "name": "reputation_tier",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-usermodel-attribute-mapper",
+          "consentRequired": false,
+          "config": {
+            "user.attribute": "reputation_tier",
+            "claim.name": "reputation_tier",
+            "jsonType.label": "String",
+            "id.token.claim": "true",
+            "access.token.claim": "true",
+            "userinfo.token.claim": "true"
+          }
+        },
+        {
+          "name": "feature_flags",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-usermodel-attribute-mapper",
+          "consentRequired": false,
+          "config": {
+            "user.attribute": "feature_flags",
+            "claim.name": "feature_flags",
+            "jsonType.label": "JSON",
+            "id.token.claim": "true",
+            "access.token.claim": "true",
+            "userinfo.token.claim": "true"
+          }
+        },
+        {
+          "name": "agent_owner_id",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-usermodel-attribute-mapper",
+          "consentRequired": false,
+          "config": {
+            "user.attribute": "agent_owner_id",
+            "claim.name": "agent_owner_id",
+            "jsonType.label": "String",
+            "id.token.claim": "true",
+            "access.token.claim": "true",
+            "userinfo.token.claim": "true"
+          }
+        }
+      ]
+    }
+  ],
+  "defaultDefaultClientScopes": [
+    "role_list",
+    "profile",
+    "email",
+    "tenant"
+  ],
+  "smtpServer": {
+    "host": "${env.SMTP_HOST}",
+    "port": "${env.SMTP_PORT}",
+    "from": "${env.SMTP_FROM}",
+    "fromDisplayName": "UBI CMS Platform",
+    "ssl": "${env.SMTP_SSL}",
+    "starttls": "${env.SMTP_STARTTLS}",
+    "auth": "true",
+    "user": "${env.SMTP_USER}",
+    "password": "${env.SMTP_PASSWORD}"
+  },
+  "eventsEnabled": true,
+  "eventsListeners": ["jboss-logging"],
+  "enabledEventTypes": [
+    "LOGIN",
+    "LOGIN_ERROR",
+    "REGISTER",
+    "REGISTER_ERROR",
+    "LOGOUT",
+    "LOGOUT_ERROR",
+    "CODE_TO_TOKEN",
+    "CODE_TO_TOKEN_ERROR",
+    "CLIENT_LOGIN",
+    "REFRESH_TOKEN",
+    "REFRESH_TOKEN_ERROR",
+    "UPDATE_EMAIL",
+    "UPDATE_EMAIL_ERROR",
+    "UPDATE_PASSWORD",
+    "UPDATE_PASSWORD_ERROR",
+    "VERIFY_EMAIL",
+    "VERIFY_EMAIL_ERROR",
+    "SEND_RESET_PASSWORD",
+    "SEND_RESET_PASSWORD_ERROR",
+    "RESET_PASSWORD",
+    "RESET_PASSWORD_ERROR"
+  ],
+  "adminEventsEnabled": true,
+  "adminEventsDetailsEnabled": true
+}

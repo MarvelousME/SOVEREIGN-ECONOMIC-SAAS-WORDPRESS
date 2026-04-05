@@ -1,0 +1,112 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 800">
+  <defs>
+    <marker id="arrowhead" markerWidth="10" markerHeight="7" refX="10" refY="3.5" orient="auto">
+      <polygon points="0 0, 10 3.5, 0 7" fill="#1a73e8"/>
+    </marker>
+  </defs>
+  
+  <!-- Background -->
+  <rect width="1000" height="800" fill="#f5f5f5"/>
+  
+  <!-- Coordinator -->
+  <rect x="400" y="30" width="200" height="60" rx="8" fill="#1a73e8" stroke="#0d47a1" stroke-width="2"/>
+  <text x="500" y="65" font-family="Arial" font-size="16" fill="white" text-anchor="middle" font-weight="bold">COORDINATOR</text>
+  
+  <!-- Swarm Boxes -->
+  <!-- Repo Mapping -->
+  <rect x="50" y="150" width="180" height="100" rx="8" fill="#e3f2fd" stroke="#1976d2" stroke-width="2"/>
+  <text x="140" y="175" font-family="Arial" font-size="14" fill="#0d47a1" text-anchor="middle" font-weight="bold">SWARM 1</text>
+  <text x="140" y="200" font-family="Arial" font-size="12" fill="#1976d2" text-anchor="middle">REPO MAPPING</text>
+  <text x="140" y="220" font-family="Arial" font-size="11" fill="#666" text-anchor="middle">12 files discovered</text>
+  
+  <!-- Backend -->
+  <rect x="260" y="150" width="180" height="100" rx="8" fill="#e8f5e9" stroke="#388e3c" stroke-width="2"/>
+  <text x="350" y="175" font-family="Arial" font-size="14" fill="#1b5e20" text-anchor="middle" font-weight="bold">SWARM 2</text>
+  <text x="350" y="200" font-family="Arial" font-size="12" fill="#388e3c" text-anchor="middle">BACKEND/SYSTEM</text>
+  <text x="350" y="220" font-family="Arial" font-size="11" fill="#666" text-anchor="middle">API, Plugins, Config</text>
+  
+  <!-- Frontend -->
+  <rect x="470" y="150" width="180" height="100" rx="8" fill="#fff3e0" stroke="#f57c00" stroke-width="2"/>
+  <text x="560" y="175" font-family="Arial" font-size="14" fill="#e65100" text-anchor="middle" font-weight="bold">SWARM 3</text>
+  <text x="560" y="200" font-family="Arial" font-size="12" fill="#f57c00" text-anchor="middle">FRONTEND/UI</text>
+  <text x="560" y="220" font-family="Arial" font-size="11" fill="#666" text-anchor="middle">Theme, Templates</text>
+  
+  <!-- Security Audit -->
+  <rect x="680" y="150" width="180" height="100" rx="8" fill="#ffebee" stroke="#d32f2f" stroke-width="2"/>
+  <text x="770" y="175" font-family="Arial" font-size="14" fill="#b71c1c" text-anchor="middle" font-weight="bold">SWARM 4</text>
+  <text x="770" y="200" font-family="Arial" font-size="12" fill="#d32f2f" text-anchor="middle">SECURITY AUDIT</text>
+  <text x="770" y="220" font-family="Arial" font-size="11" fill="#666" text-anchor="middle">Vulnerability Scan</text>
+  
+  <!-- Logic Audit -->
+  <rect x="830" y="280" width="140" height="80" rx="8" fill="#fce4ec" stroke="#c2185b" stroke-width="2"/>
+  <text x="900" y="305" font-family="Arial" font-size="12" fill="#880e4f" text-anchor="middle" font-weight="bold">SUBAGENT 1</text>
+  <text x="900" y="325" font-family="Arial" font-size="10" fill="#666" text-anchor="middle">Auth Logic</text>
+  
+  <rect x="830" y="380" width="140" height="80" rx="8" fill="#fce4ec" stroke="#c2185b" stroke-width="2"/>
+  <text x="900" y="405" font-family="Arial" font-size="12" fill="#880e4f" text-anchor="middle" font-weight="bold">SUBAGENT 2</text>
+  <text x="900" y="425" font-family="Arial" font-size="10" fill="#666" text-anchor="middle">Treasury Logic</text>
+  
+  <rect x="830" y="480" width="140" height="80" rx="8" fill="#fce4ec" stroke="#c2185b" stroke-width="2"/>
+  <text x="900" y="505" font-family="Arial" font-size="12" fill="#880e4f" text-anchor="middle" font-weight="bold">SUBAGENT 3</text>
+  <text x="900" y="525" font-family="Arial" font-size="10" fill="#666" text-anchor="middle">UBI Engine</text>
+  
+  <rect x="680" y="480" width="140" height="80" rx="8" fill="#fce4ec" stroke="#c2185b" stroke-width="2"/>
+  <text x="750" y="505" font-family="Arial" font-size="12" fill="#880e4f" text-anchor="middle" font-weight="bold">SUBAGENT 4</text>
+  <text x="750" y="525" font-family="Arial" font-size="10" fill="#666" text-anchor="middle">Theme Security</text>
+  
+  <rect x="530" y="480" width="140" height="80" rx="8" fill="#fce4ec" stroke="#c2185b" stroke-width="2"/>
+  <text x="600" y="505" font-family="Arial" font-size="12" fill="#880e4f" text-anchor="middle" font-weight="bold">SUBAGENT 5</text>
+  <text x="600" y="525" font-family="Arial" font-size="10" fill="#666" text-anchor="middle">API Security</text>
+  
+  <rect x="380" y="480" width="140" height="80" rx="8" fill="#fce4ec" stroke="#c2185b" stroke-width="2"/>
+  <text x="450" y="505" font-family="Arial" font-size="12" fill="#880e4f" text-anchor="middle" font-weight="bold">SUBAGENT 6</text>
+  <text x="450" y="525" font-family="Arial" font-size="10" fill="#666" text-anchor="middle">Middleware</text>
+  
+  <rect x="230" y="480" width="140" height="80" rx="8" fill="#fce4ec" stroke="#c2185b" stroke-width="2"/>
+  <text x="300" y="505" font-family="Arial" font-size="12" fill="#880e4f" text-anchor="middle" font-weight="bold">SUBAGENT 7</text>
+  <text x="300" y="525" font-family="Arial" font-size="10" fill="#666" text-anchor="middle">Plugin Audit</text>
+  
+  <rect x="80" y="480" width="140" height="80" rx="8" fill="#fce4ec" stroke="#c2185b" stroke-width="2"/>
+  <text x="150" y="505" font-family="Arial" font-size="12" fill="#880e4f" text-anchor="middle" font-weight="bold">SUBAGENT 8</text>
+  <text x="150" y="525" font-family="Arial" font-size="10" fill="#666" text-anchor="middle">Config Audit</text>
+  
+  <rect x="80" y="380" width="140" height="80" rx="8" fill="#fce4ec" stroke="#c2185b" stroke-width="2"/>
+  <text x="150" y="405" font-family="Arial" font-size="12" fill="#880e4f" text-anchor="middle" font-weight="bold">SUBAGENT 9</text>
+  <text x="150" y="425" font-family="Arial" font-size="10" fill="#666" text-anchor="middle">Docker Audit</text>
+  
+  <rect x="80" y="280" width="140" height="80" rx="8" fill="#fce4ec" stroke="#c2185b" stroke-width="2"/>
+  <text x="150" y="305" font-family="Arial" font-size="12" fill="#880e4f" text-anchor="middle" font-weight="bold">SUBAGENT 10</text>
+  <text x="150" y="325" font-family="Arial" font-size="10" fill="#666" text-anchor="middle">Test Coverage</text>
+  
+  <!-- File Coverage -->
+  <rect x="50" y="620" width="900" height="100" rx="8" fill="white" stroke="#ccc" stroke-width="1"/>
+  <text x="500" y="645" font-family="Arial" font-size="14" fill="#333" text-anchor="middle" font-weight="bold">FILE COVERAGE LEDGER</text>
+  
+  <text x="100" y="670" font-family="Arial" font-size="11" fill="#333" text-anchor="start">functions.php</text>
+  <rect x="180" y="660" width="60" height="14" rx="3" fill="#4caf50"/>
+  <text x="245" y="672" font-family="Arial" font-size="10" fill="#333">AUDITED</text>
+  
+  <text x="320" y="670" font-family="Arial" font-size="11" fill="#333" text-anchor="start">style.css</text>
+  <rect x="400" y="660" width="60" height="14" rx="3" fill="#4caf50"/>
+  <text x="465" y="672" font-family="Arial" font-size="10" fill="#333">AUDITED</text>
+  
+  <text x="540" y="670" font-family="Arial" font-size="11" fill="#333" text-anchor="start">main.js</text>
+  <rect x="610" y="660" width="60" height="14" rx="3" fill="#4caf50"/>
+  <text x="675" y="672" font-family="Arial" font-size="10" fill="#333">AUDITED</text>
+  
+  <text x="750" y="670" font-family="Arial" font-size="11" fill="#333" text-anchor="start">ubi-auth.php</text>
+  <rect x="840" y="660" width="60" height="14" rx="3" fill="#4caf50"/>
+  
+  <text x="100" y="695" font-family="Arial" font-size="11" fill="#333" text-anchor="start">ubi-treasury.php</text>
+  <rect x="200" y="685" width="60" height="14" rx="3" fill="#4caf50"/>
+  
+  <text x="280" y="695" font-family="Arial" font-size="11" fill="#333" text-anchor="start">ubi-engine.php</text>
+  <rect x="380" y="685" width="60" height="14" rx="3" fill="#4caf50"/>
+  
+  <text x="460" y="695" font-family="Arial" font-size="11" fill="#333" text-anchor="start">authController.js</text>
+  <rect x="580" y="685" width="60" height="14" rx="3" fill="#4caf50"/>
+  
+  <text x="660" y="695" font-family="Arial" font-size="11" fill="#333" text-anchor="start">auth.js</text>
+  <rect x="730" y="685" width="60" height="14" rx="3" fill="#4caf50"/>
+  
+  <te

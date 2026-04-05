@@ -1,0 +1,79 @@
+.saaos-traffic-router-admin {
+    max-width: 1200px;
+}
+
+.saas-traffic-router-admin h1 {
+    margin-bottom: 20px;
+}
+
+.saao-stats-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 20px;
+    margin-bottom: 30px;
+}
+
+.saao-stat-card {
+    background: #fff;
+    border: 1px solid #ccd0d4;
+    border-radius: 4px;
+    padding: 20px;
+    text-align: center;
+}
+
+.saao-stat-card h3 {
+    margin: 0 0 10px;
+    font-size: 14px;
+    color: #72777c;
+}
+
+.saao-stat-card .saao-stat-number {
+    margin: 0;
+    font-size: 32px;
+    font-weight: 600;
+    color: #23282d;
+}
+
+.saao-dashboard-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 20px;
+    margin-bottom: 20px;
+}
+
+.saao-dashboard-col {
+    flex: 1;
+    min-width: 400px;
+    background: #fff;
+    border: 1px solid #ccd0d4;
+    border-radius: 4px;
+    padding: 20px;
+}
+
+.saao-dashboard-col h2 {
+    margin-top: 0;
+    font-size: 18px;
+}
+
+.saao-form-card {
+    background: #fff;
+    border: 1px solid #ccd0d4;
+    border-radius: 4px;
+    padding: 20px;
+    margin-bottom: 20px;
+    max-width: 600px;
+}
+
+.saao-form-card h2 {
+    margin-top: 0;
+}
+
+.saaos-affiliate-link,
+.saaos-tracked-link {
+    cursor: pointer;
+}
+
+.saaos-affiliate-link::after,
+.saaos-tracked-link::after {
+    content: '';
+}

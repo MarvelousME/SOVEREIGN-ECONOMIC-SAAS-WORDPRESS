@@ -1,0 +1,188 @@
+name: Deploy
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Environment to deploy to'
+        required: true
+        type: choice
+        options:
+          - dev
+          - staging
+          - production
+  push:
+    tags:
+      - 'v*'
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_PREFIX: ${{ github.repository_owner }}/ubi-cms
+
+jobs:
+  deploy:
+    name: Deploy to ${{ github.event.inputs.environment || 'production' }}
+    runs-on: ubuntu-latest
+    environment:
+      name: ${{ github.event.inputs.environment || 'production' }}
+      url: ${{ steps.deploy.outputs.url }}
+    permissions:
+      contents: read
+      packages: read
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set environment variables
+        id: vars
+        run: |
+          ENV="${{ github.event.inputs.environment || 'production' }}"
+          echo "environment=${ENV}" >> $GITHUB_OUTPUT
+          
+          if [ "$ENV" = "production" ]; then
+            echo "url=https://ubi-cms.production.example.com" >> $GITHUB_OUTPUT
+            echo "compose_file=docker-compose.prod.yml" >> $GITHUB_OUTPUT
+          elif [ "$ENV" = "staging" ]; then
+            echo "url=https://ubi-cms.staging.example.com" >> $GITHUB_OUTPUT
+            echo "compose_file=docker-compose.staging.yml" >> $GITHUB_OUTPUT
+          else
+            echo "url=https://ubi-cms.dev.example.com" >> $GITHUB_OUTPUT
+            echo "compose_file=docker-compose.dev.yml" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Setup SSH
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.DEPLOY_SSH_KEY }}
+
+      - name: Add known hosts
+        run: |
+          mkdir -p ~/.ssh
+          ssh-keyscan -H ${{ secrets.DEPLOY_HOST }} >> ~/.ssh/known_hosts
+
+      - name: Copy deployment files
+        run: |
+          scp -r ./docker-compose*.yml ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}:/opt/ubi-cms/
+          scp -r ./scripts/deploy.sh ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}:/opt/ubi-cms/
+
+      - name: Run database migrations
+        run: |
+          ssh ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }} << 'EOF'
+            cd /opt/ubi-cms
+            docker run --rm \
+              --network ubi-cms-network \
+              -e DATABASE_URL=${{ secrets.DATABASE_URL }} \
+              ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}-migrations:${{ github.sha }} \
+              npm run migrate:up
+          EOF
+
+      - name: Deploy services
+        id: deploy
+        run: |
+          ssh ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }} << 'EOF'
+            cd /opt/ubi-cms
+            export IMAGE_TAG=${{ github.sha }}
+            export ENVIRONMENT=${{ steps.vars.outputs.environment }}
+            
+            # Pull latest images
+            docker compose -f ${{ steps.vars.outputs.compose_file }} pull
+            
+            # Deploy with rolling update
+            ./scripts/deploy.sh ${{ steps.vars.outputs.environment }}
+          EOF
+          
+          echo "url=${{ steps.vars.outputs.url }}" >> $GITHUB_OUTPUT
+
+      - name: Wait for services to be ready
+        run: |
+          sleep 30
+          
+      - name: Run smoke tests
+        run: |
+          HEALTH_URL="${{ steps.vars.outputs.url }}/health"
+          
+          echo "Checking health endpoint: ${HEALTH_URL}"
+          
+          for i in {1..10}; do
+            STATUS=$(curl -s -o /dev/null -w "%{http_code}" ${HEALTH_URL})
+            if [ "$STATUS" = "200" ]; then
+              echo "Health check passed!"
+              exit 0
+            fi
+            echo "Health check failed (attempt $i/10), status: ${STATUS}"
+            sleep 10
+          done
+          
+          echo "Health check failed after 10 attempts"
+          exit 1
+
+      - name: Run API smoke tests
+        run: |
+          BASE_URL="${{ steps.vars.outputs.url }}"
+          
+          # Test API endpoints
+          curl -f "${BASE_URL}/api/v1/health" || exit 1
+          curl -f "${BASE_URL}/api/v1/health/ready" || exit 1
+          curl -f "${BASE_URL}/api/v1/health/live" || exit 1
+          
+          echo "All smoke tests passed!"
+
+      - name: Rollback on failure
+        if: failure()
+        run: |
+          ssh ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }} << 'EOF'
+            cd /opt/ubi-cms
+            ./scripts/rollback.sh ${{ steps.vars.outputs.environment }}
+          EOF
+
+      - name: Notify on success
+        if: success()
+        uses: 8398a7/action-slack@v3
+        with:
+          status: custom
+          custom_payload: |
+            {
+              text: "✅ Deployment to ${{ steps.vars.outputs.environment }} succeeded",
+              attachments: [{
+                color: 'good',
+                fields: [{
+                  title: 'Environment',
+                  value: '${{ steps.vars.outputs.environment }}',
+                  short: true
+                }, {
+                  title: 'Version',
+                  value: '${{ github.sha }}',
+                  short: true
+                }, {
+                  title: 'URL',
+                  value: '${{ steps.vars.outputs.url }}',
+                  short: false
+                }]
+              }]
+            }
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+
+      - name: Notify on failure
+        if: failure()
+        uses: 8398a7/action-slack@v3
+        with:
+          status: custom
+          custom_payload: |
+            {
+              text: "❌ Deployment to ${{ steps.vars.outputs.environment }} failed",
+              attachments: [{
+                color: 'danger',
+                fields: [{
+                  title: 'Environment',
+                  value: '${{ steps.vars.outputs.environment }}',
+                  short: true
+                }, {
+                  title: 'Version',
+                  value: '${{ github.sha }}',
+                  short: true
+                }]
+              }]
+            }
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}

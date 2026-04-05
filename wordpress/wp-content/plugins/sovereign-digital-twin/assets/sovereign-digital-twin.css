@@ -1,0 +1,182 @@
+/* Sovereign Digital Twin — matches Nexros Child (--sv-*) tokens */
+
+.sov-dt-globe-wrap {
+  margin: 0 0 2rem;
+  padding: 1.5rem 1.5rem 1rem;
+  overflow: hidden;
+}
+
+.sov-dt-globe-header {
+  margin-bottom: 1rem;
+}
+
+.sov-dt-globe-title {
+  margin: 0 0 0.35rem;
+}
+
+.sov-dt-globe-sub {
+  margin: 0;
+  max-width: 52rem;
+}
+
+.sov-dt-map {
+  width: 100%;
+  min-height: 280px;
+  border-radius: 14px;
+  border: 1px solid var(--sv-border, #2f4d79);
+  background: var(--sv-bg, #0b1020);
+  z-index: 1;
+}
+
+.sov-dt-map-attribution {
+  font-size: 11px;
+  color: var(--sv-muted, #dbe6f5);
+  margin: 0.5rem 0 0;
+  opacity: 0.85;
+}
+
+.sov-dt-map-attribution a {
+  color: var(--sv-accent, #ef9337);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.sov-dt-map-marker-inner {
+  display: block;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  overflow: hidden;
+  border: 2px solid var(--sv-accent, #ef9337);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.35);
+  background: var(--sv-card, #10243f);
+}
+
+.sov-dt-map-marker-inner img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.leaflet-container {
+  font-family: inherit;
+}
+
+/* Member strip (front page) */
+.sov-dt-strip-wrap {
+  margin: 0 0 2.5rem;
+  padding: 1.25rem 0 1.5rem;
+  border-bottom: 1px solid var(--sv-border, #2f4d79);
+}
+
+.sov-dt-strip-head {
+  margin-bottom: 1rem;
+  padding: 0 0.25rem;
+}
+
+.sov-dt-strip-title {
+  margin: 0.5rem 0 0;
+  font-size: 1.35rem;
+}
+
+.sov-dt-strip-scroll {
+  overflow-x: auto;
+  overflow-y: hidden;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-color: var(--sv-accent, #ef9337) var(--sv-card, #10243f);
+}
+
+.sov-dt-strip-scroll:focus-visible {
+  outline: 2px solid var(--sv-accent, #ef9337);
+  outline-offset: 4px;
+}
+
+.sov-dt-strip-list {
+  display: flex;
+  flex-wrap: nowrap;
+  gap: 1.25rem;
+  list-style: none;
+  margin: 0;
+  padding: 0.5rem 0.25rem 1rem;
+}
+
+.sov-dt-strip-item {
+  flex: 0 0 auto;
+}
+
+.sov-dt-strip-link {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+  width: 92px;
+  text-decoration: none;
+  color: var(--sv-text, #fff);
+  cursor: pointer;
+  border-radius: 12px;
+  padding: 0.35rem;
+  transition: background-color 0.2s ease, transform 0.2s ease;
+}
+
+.sov-dt-strip-link:hover {
+  background: rgba(239, 147, 55, 0.08);
+}
+
+.sov-dt-strip-link:focus-visible {
+  outline: 2px solid var(--sv-accent, #ef9337);
+  outline-offset: 2px;
+}
+
+.sov-dt-strip-ring {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 76px;
+  height: 76px;
+  border-radius: 50%;
+  border: 2px solid var(--sv-border, #2f4d79);
+  overflow: hidden;
+  background: var(--sv-card, #10243f);
+  transition: border-color 0.2s ease;
+}
+
+.sov-dt-strip-link:hover .sov-dt-strip-ring {
+  border-color: var(--sv-accent, #ef9337);
+}
+
+.sov-dt-strip-ring img {
+  width: 72px;
+  height: 72px;
+  object-fit: cover;
+  border-radius: 50%;
+}
+
+.sov-dt-strip-name {
+  font-size: 12px;
+  line-height: 1.25;
+  text-align: center;
+  max-width: 92px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--sv-muted, #dbe6f5);
+}
+
+.sov-dt-login-hint {
+  padding: 1.25rem;
+}
+
+.sov-dt-settings .field label {
+  display: block;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--sv-muted, #dbe6f5);
+  margin-bottom: 4px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sov-dt-strip-link {
+    transition: none;
+  }
+}

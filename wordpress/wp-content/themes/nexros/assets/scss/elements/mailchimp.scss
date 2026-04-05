@@ -1,0 +1,23 @@
+.mc4wp-alert {
+	margin-top: 14px;
+	font-size: 16px;
+	line-height: 1.625;
+	p:last-child {
+		margin-bottom: 0;
+	}
+}
+.pxl-mailchimp {
+    .btn-form {
+        button {
+            color: #fff;
+            text-transform: uppercase;
+            &:hover {
+            	background-color: $primary_color;
+            }
+        }
+    }
+}
+
+body.rtl {
+	
+}

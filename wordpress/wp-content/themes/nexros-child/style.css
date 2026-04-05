@@ -1,0 +1,41 @@
+/*
+Theme Name: Nexros Child
+Template: nexros
+Author: OpenAI
+Description: Child theme wiring Nexros to Sovereign SaaS dashboards, tenant onboarding, affiliate center, and wallet UI.
+Version: 1.0.0
+Text Domain: nexros-child
+*/
+
+:root{
+  --sv-bg:#0b1020;
+  --sv-card:#10243f;
+  --sv-border:#2f4d79;
+  --sv-text:#ffffff;
+  --sv-muted:#dbe6f5;
+  --sv-accent:#ef9337;
+}
+.nexros-sovereign-shell{display:grid;grid-template-columns:280px 1fr;gap:24px;align-items:start;margin:32px 0}
+.nexros-sovereign-sidebar,.nexros-sovereign-card,.nexros-sovereign-table-wrap,.nexros-sovereign-form{background:var(--sv-card);color:var(--sv-text);border:1px solid var(--sv-border);border-radius:18px;box-shadow:0 10px 24px rgba(0,0,0,.16)}
+.nexros-sovereign-sidebar{padding:18px;position:sticky;top:24px}.nexros-sovereign-card{padding:22px}
+.nexros-sovereign-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:18px}
+.nexros-sovereign-grid.two{grid-template-columns:repeat(2,minmax(0,1fr))}
+.nexros-sovereign-stack{display:grid;gap:18px}.nexros-sovereign-kpi{font-size:34px;font-weight:700}.nexros-sovereign-label{font-size:13px;color:var(--sv-muted);text-transform:uppercase;letter-spacing:.08em}
+.nexros-sovereign-title{margin:0 0 8px;font-size:22px;color:var(--sv-text)}.nexros-sovereign-subtitle{margin:0;color:var(--sv-muted)}
+.nexros-sovereign-nav{display:grid;gap:10px;margin-top:14px}.nexros-sovereign-nav a{display:block;padding:12px 14px;border:1px solid var(--sv-border);border-radius:12px;color:var(--sv-text);text-decoration:none}
+.nexros-sovereign-nav a:hover{border-color:var(--sv-accent);background:rgba(239,147,55,.08)}
+.nexros-sovereign-pill{display:inline-block;padding:6px 10px;border-radius:999px;font-size:12px;font-weight:700;background:rgba(239,147,55,.15);color:var(--sv-accent)}
+.nexros-sovereign-btn{display:inline-block;padding:12px 16px;border-radius:12px;background:var(--sv-accent);color:#111;text-decoration:none;font-weight:700;border:none;cursor:pointer}
+.nexros-sovereign-btn.secondary{background:transparent;color:var(--sv-text);border:1px solid var(--sv-border)}
+.nexros-sovereign-table-wrap{overflow:auto;padding:10px}.nexros-sovereign-table{width:100%;border-collapse:collapse}
+.nexros-sovereign-table th,.nexros-sovereign-table td{padding:12px;border-bottom:1px solid rgba(255,255,255,.08);text-align:left;color:var(--sv-text)}
+.nexros-sovereign-table th{font-size:12px;text-transform:uppercase;color:var(--sv-muted)}
+.nexros-sovereign-form{padding:22px}.nexros-sovereign-form input,.nexros-sovereign-form select,.nexros-sovereign-form textarea{width:100%;padding:12px 14px;border-radius:12px;border:1px solid var(--sv-border);background:#0f1830;color:#fff;margin-top:6px}
+.nexros-sovereign-form .field{margin-bottom:14px}.nexros-sovereign-alert{padding:12px 14px;border-radius:12px;margin-bottom:16px}.nexros-sovereign-alert.success{background:rgba(36,180,126,.12);border:1px solid rgba(36,180,126,.45)}
+.nexros-sovereign-hero{background:linear-gradient(135deg,#0f1730,#18345b);border:1px solid var(--sv-border);border-radius:22px;padding:28px;color:#fff}.nexros-sovereign-hero h1{margin:0 0 12px;font-size:40px;color:#fff}.nexros-sovereign-hero p{margin:0;color:var(--sv-muted);max-width:800px}
+@media (max-width:1024px){.nexros-sovereign-shell{grid-template-columns:1fr}.nexros-sovereign-grid,.nexros-sovereign-grid.two{grid-template-columns:1fr}}
+
+/* Sovereign IAM UX fixed bar (56px) + room under theme header — sticky SaaS sidebar */
+body.sov-iam-has-bar.nexros-sovereign-platform .nexros-sovereign-sidebar{
+  top:calc(var(--sov-iam-bar-h, 56px) + 24px);
+}

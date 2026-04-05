@@ -1,0 +1,160 @@
+name: Build
+
+on:
+  push:
+    branches: [ main ]
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_PREFIX: ${{ github.repository_owner }}/ubi-cms
+
+jobs:
+  build-and-push:
+    name: Build and Push Docker Images
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+      security-events: write
+    strategy:
+      matrix:
+        service:
+          - name: api
+            dockerfile: ./api/Dockerfile
+            context: ./api
+          - name: governance-service
+            dockerfile: ./services/governance-service/Dockerfile
+            context: ./services/governance-service
+          - name: notifications-service
+            dockerfile: ./services/notifications-service/Dockerfile
+            context: ./services/notifications-service
+          - name: agent-runner
+            dockerfile: ./services/agent-runner/Dockerfile
+            context: ./services/agent-runner
+          - name: agent-control-plane
+            dockerfile: ./services/agent-control-plane/Dockerfile
+            context: ./services/agent-control-plane
+          - name: reputation-service
+            dockerfile: ./services/reputation-service/Dockerfile
+            context: ./services/reputation-service
+          - name: rewards-engine
+            dockerfile: ./services/rewards-engine/Dockerfile
+            context: ./services/rewards-engine
+          - name: task-marketplace
+            dockerfile: ./services/task-marketplace/Dockerfile
+            context: ./services/task-marketplace
+          - name: treasury-engine
+            dockerfile: ./services/treasury-engine/Dockerfile
+            context: ./services/treasury-engine
+          - name: ubi-engine
+            dockerfile: ./services/ubi-engine/Dockerfile
+            context: ./services/ubi-engine
+          - name: ledger-service
+            dockerfile: ./services/ledger-service/Dockerfile
+            context: ./services/ledger-service
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}-${{ matrix.service.name }}
+          tags: |
+            type=ref,event=branch
+            type=ref,event=pr
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=semver,pattern={{major}}
+            type=sha,prefix={{branch}}-
+            type=raw,value=latest,enable={{is_default_branch}}
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: ${{ matrix.service.context }}
+          file: ${{ matrix.service.dockerfile }}
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          build-args: |
+            BUILD_DATE=${{ github.event.head_commit.timestamp }}
+            VCS_REF=${{ github.sha }}
+            VERSION=${{ steps.meta.outputs.version }}
+
+      - name: Run Trivy vulnerability scanner
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}-${{ matrix.service.name }}:${{ github.sha }}
+          format: 'sarif'
+          output: 'trivy-results-${{ matrix.service.name }}.sarif'
+
+      - name: Upload Trivy results to GitHub Security
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: 'trivy-results-${{ matrix.service.name }}.sarif'
+          category: ${{ matrix.service.name }}
+
+      - name: Run Grype vulnerability scanner
+        uses: anchore/scan-action@v3
+        with:
+          image: ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}-${{ matrix.service.name }}:${{ github.sha }}
+          fail-build: false
+          severity-cutoff: high
+
+  build-migrations:
+    name: Build Migration Runner
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}-migrations
+          tags: |
+            type=sha
+            type=raw,value=latest,enable={{is_default_branch}}
+
+      - name: Build and push migration image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./migrations
+          file: ./migrations/Dockerfile
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max

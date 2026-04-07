@@ -34,6 +34,9 @@ export const progressQuery = defineQuery<WorkflowProgress>('progress');
 export interface UBIDistributionInput {
   distributionId: string;
   dryRun?: boolean;
+  /** Passed through to NATS / notification payloads */
+  tenantId?: string;
+  poolId?: string;
 }
 
 export async function ubiDistributionWorkflow(
@@ -143,7 +146,13 @@ export async function ubiDistributionWorkflow(
     currentStep = 'emitting_events';
     for (const user of users) {
       const amount = amounts.get(user.id) || 0;
-      await emitDistributionEvent(user.id, amount, input.distributionId);
+      await emitDistributionEvent(
+        user.id,
+        amount,
+        input.distributionId,
+        input.tenantId,
+        input.poolId
+      );
     }
     progress.completedSteps++;
     progress.percentage = (progress.completedSteps / progress.totalSteps) * 100;

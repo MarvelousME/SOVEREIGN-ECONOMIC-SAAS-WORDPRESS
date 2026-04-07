@@ -143,6 +143,8 @@ export interface QueueMessage {
   executionId: string;
   payload: any;
   timestamp: Date;
+  /** Owner user (e.g. on agent.completed / agent.failed for downstream notifications) */
+  userId?: string;
 }
 
 // Execution Request Schema

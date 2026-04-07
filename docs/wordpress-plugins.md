@@ -1,6 +1,6 @@
 # WordPress Plugins Documentation
 
-This document covers the three UBI Platform WordPress plugins that integrate the platform's microservices with WordPress, plus operational notes for bundled third-party plugins.
+This document covers the three UBI Platform WordPress plugins that integrate the platform's microservices with WordPress, **Sovereign OS Core** (multi-tenant + Fluent Support), plus operational notes for bundled third-party plugins.
 
 ## Table of Contents
 
@@ -8,8 +8,9 @@ This document covers the three UBI Platform WordPress plugins that integrate the
 1. [UBI Engine](#ubi-engine)
 2. [UBI Treasury](#ubi-treasury)
 3. [UBI Auth](#ubi-auth)
-4. [Integration Architecture](#integration-architecture)
-5. [Installation & Setup](#installation--setup)
+4. [Sovereign OS Core & Fluent Support (tenant isolation)](#sovereign-os-core--fluent-support-tenant-isolation)
+5. [Integration Architecture](#integration-architecture)
+6. [Installation & Setup](#installation--setup)
 
 ---
 
@@ -405,6 +406,47 @@ Integrates with Auth/Keycloak microservice for:
 - Session management
 
 See [Auth Service Documentation](./microservices.md#auth-service) for API details.
+
+---
+
+## Sovereign OS Core & Fluent Support (tenant isolation)
+
+**Plugin path:** `wordpress/wp-content/plugins/sovereign-os-core/`
+
+Sovereign OS Core wires **Fluent Support** into the same **multi-tenant model** as the rest of the Sovereign stack: each customer only sees and queries tickets that belong to their tenant.
+
+**IAM bigint vs WordPress UUID:** Treasury and IAM use `tenants.id` (bigint); WordPress and Business Builder use workspace **UUID** (`sovereign_tenant_id`, `tenant_workspaces.id`). See [Tenant ID mapping](./integration/tenant-id-mapping.md) and migration `023_iam_tenant_workspace_uuid_link.sql`.
+
+### Requirements
+
+- **Fluent Support** active (`wordpress/wp-content/plugins/fluent-support/`).
+- End users (customers) should carry tenant scope in user meta — **`sovereign_tenant_id`** (UUID string). The plugin also falls back to legacy **`tenant_id`** where applicable, then the plugin default tenant.
+
+### Behavior
+
+| Hook | Purpose |
+|------|---------|
+| `fluent_support/ticket_created` | On create, stamps the ticket with tenant id in Fluent’s meta store (`object_type` = `ticket_meta`, key **`sovereign_tenant_id`**). |
+| `fluent_support/can_customer_access_ticket` | Customer portal: deny access if the ticket’s tenant does not match the current user’s effective tenant; may backfill missing ticket meta from the customer user. |
+| `fluent_support/tickets_query_by_permission_ref` | Restricts ticket list queries to tickets whose **`sovereign_tenant_id`** meta matches the current tenant. |
+
+Storage uses Fluent Support’s **`{prefix}fs_meta`** table (not arbitrary post meta), consistent with Fluent’s own ticket metadata patterns.
+
+### Operations notes
+
+- **Backfill:** In **Sovereign OS → Settings**, use **Backfill up to 500 tickets** (or WP-CLI `wp sovereign-os fluent-backfill-tickets [--batch-size=200]`) to stamp `sovereign_tenant_id` on tickets that predate the integration.
+- **Agents:** Set **Tenant ID** on each agent user profile (same field as other users). With **Enforce tenant match on Fluent agent REST routes** enabled (default), agents only see and open tickets in their tenant; **WordPress administrators see all tickets** optionally skips list filtering and REST enforcement for `manage_options` users.
+- **REST:** Routes under `/wp-json/fluent-support/v2/tickets/{id}` are checked when enforcement is on; tickets without tenant meta return 403 until backfilled.
+
+For running WordPress against a broader platform tree (e.g. TRUNK `dev-environment/ubi`), see [TRUNK dev-environment bridge](./integration/trunk-dev-environment-ubi.md).
+
+### WooCommerce (default gateway)
+
+When **WooCommerce** is active, **Sovereign OS → Settings** exposes **Default payment gateway ID** (e.g. `bacs`, `stripe`) and an optional **Checkout: only offer this gateway** checkbox. The plugin filters `pre_option_woocommerce_default_gateway`, `woocommerce_default_gateway`, and (when restricted) `woocommerce_available_payment_gateways` so the platform default applies on the storefront even after other gateway plugins register methods. Saving settings also runs `update_option('woocommerce_default_gateway', …)` when the ID is non-empty.
+
+### Main treasury (workspaces)
+
+All **Business Builder** workspaces store `settings.treasury` pointing at the **single platform vault** (`platformTenantId`, `primaryVaultId`, `mode: platform_main`). New workspaces get this from `MAIN_TREASURY_*` env vars; existing rows are updated by migration `022_tenant_workspace_main_treasury.sql`. See [main treasury env sample](./integration/main-treasury.env.sample).
 
 ---
 

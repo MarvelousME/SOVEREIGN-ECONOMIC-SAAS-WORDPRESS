@@ -78,7 +78,7 @@ Use **Express.js** for the monolithic API.
 
 ### Decision
 
-Use **PostgreSQL 15+** as the primary relational database.
+Use **PostgreSQL 15+** as the primary relational database. **Local and dev Compose files in this repo use PostgreSQL 16** (`postgres:16-alpine`).
 
 ### Rationale
 

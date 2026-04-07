@@ -146,6 +146,16 @@ graph TB
 
 ---
 
+## Interactive system map (Portal UI)
+
+The **Portal UI** includes a **React Flow** diagram (not the static Mermaid above) for admins and developers:
+
+- **Routes:** `/dashboard/system/architecture` (full map) and `/dashboard/system/workflows` (same canvas; copy emphasizes Temporal **triggers** and **workflow type** nodes aligned with `workflows/src/workflows/`).
+- **Behaviour:** Drag nodes, draw edges (proposed wiring in orange), drag items from the **palette**; **Suggestions preview** updates as you edit. **Save to repo** writes under [`generated/architecture/outputs/`](../generated/architecture/README.md) (gitignored by default). Optional **Live save** debounces the same write while you drag or connect.
+- **Temporal:** Workflow labels on the map match the central worker package; see [Temporal workflows](./temporal-workflows.md).
+
+---
+
 ## Current vs Planned Architecture
 
 ### Current State (Implemented)
@@ -522,7 +532,7 @@ graph TB
 | `nginx` | nginx:alpine | 80, 443 | 1 | TCP check |
 | `api` | `ubi-api:latest` | 3000 | 2 | GET /health |
 | `portal-ui` | `ubi-portal-ui:latest` | 3001 | 1 | GET /api/health |
-| `postgres` | postgres:15 | 5432 | 1 | pg_isready |
+| `postgres` | postgres:16-alpine (see `docker-compose.local.yml` / `docker-compose.dev.yml`) | 5432 | 1 | pg_isready |
 | `redis` | redis:7-alpine | 6379 | 1 | redis-cli ping |
 | `prometheus` | prom/prometheus:3.x | 9090 | 1 | HTTP check |
 | `grafana` | grafana:12.x | 3000 | 1 | HTTP check |

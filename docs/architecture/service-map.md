@@ -2,6 +2,8 @@
 
 This document provides a comprehensive overview of all services in the UBI-CMS platform, their responsibilities, dependencies, and communication patterns.
 
+> **Local port note:** The Next.js **Portal UI** in this repo runs on **http://localhost:3001** (`frontend/portal-ui`). Several backend services (e.g. **Auth Service**) also default to **port 3001** in their own `.env.example`. When running multiple processes on one machine, set `PORT` (and URLs like `PORTAL_UI_URL`) so nothing binds to the same host port.
+
 ## Service Overview
 
 ### Core Services

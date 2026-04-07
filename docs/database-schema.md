@@ -1,6 +1,6 @@
 # UBI CMS — Database Schema Reference
 
-**Database:** PostgreSQL 15+  
+**Database:** PostgreSQL 15+ (Compose in this repo typically uses **16**; DB name **`ubi_dev`** for `docker-compose.local.yml`, **`ubi_cms`** for `docker-compose.dev.yml`)  
 **Migrations directory:** `migrations/`  
 **Run all:** `psql $DATABASE_URL -f migrations/000_run_all_migrations.sql`
 
@@ -382,7 +382,7 @@ All foreign keys use `ON DELETE CASCADE` to automatically clean up child records
 
 | File | Contents |
 |------|----------|
-| `000_run_all_migrations.sql` | Master runner — includes all below in order |
+| `000_run_all_migrations.sql` | Master runner — includes **001–011** only (see note below) |
 | `001_create_extensions.sql` | PostgreSQL extensions (uuid-ossp, pgcrypto) |
 | `002_create_iam_schema.sql` | IAM / identity schema |
 | `003_create_ledger_schema.sql` | Ledger / accounting schema |
@@ -396,6 +396,15 @@ All foreign keys use `ON DELETE CASCADE` to automatically clean up child records
 | `010_create_audit_security_schema.sql` | Audit log tables |
 | `011_create_agent_tables.sql` | Additional agent tables |
 | `011_create_notifications_events_schema.sql` | Notifications and events |
-| `021_partner_referral_workspace_os_schema.sql` | Partner Referral Workspace OS (`partner_referral_os` schema); run after `012` (`tenant_workspaces`) |
+| `012_business_builder_tenant_workspaces.sql` | Business Builder `tenant_workspaces` and related; prerequisite for later workspace features |
+| `014_create_affiliate_intelligence_schema.sql` | Affiliate intelligence schema |
+| `015_create_landing_page_factory_schema.sql` | Landing page factory tables |
+| `017_create_compliance_schema.sql` | Compliance engine schema |
+| `018_create_agent_control_plane_schema.sql` | Agent control plane schema |
+| `019_create_analytics_schema.sql` | Analytics schema |
+| `020_add_rls_policies.sql` | Row-level security policies |
+| `021_partner_referral_workspace_os_schema.sql` | Partner Referral Workspace OS (`partner_referral_os` schema); run after `012` |
+| `022_tenant_workspace_main_treasury.sql` | Points workspace treasury settings at platform main vault (`MAIN_TREASURY_*`) |
+| `023_iam_tenant_workspace_uuid_link.sql` | IAM `tenants.workspace_tenant_uuid` ↔ workspace UUID; see [Tenant ID mapping](./integration/tenant-id-mapping.md) |
 
-> **Note:** Some numbers have duplicates (e.g., multiple `007_` files) targeting different domains. All are included in the master `000_run_all_migrations.sql`.
+> **Note:** Some numbers have duplicates (e.g., multiple `007_` / `008_` / `011_` files) targeting different domains. The file `000_run_all_migrations.sql` currently stops at **`011_create_notifications_events_schema.sql`**. Migrations **`012` and above** must be applied **manually in order** (or your deployment pipeline should run them after the base bundle). See also `migrations/` for any newer files not yet listed here.

@@ -92,14 +92,24 @@ export async function updateUserBalance(userId: string, amount: number): Promise
 export async function emitDistributionEvent(
   userId: string,
   amount: number,
-  distributionId: string
+  distributionId: string,
+  tenantId?: string,
+  poolId?: string
 ): Promise<void> {
   const response = await fetch(`${config.services.ubiEngine}/api/events`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
       type: 'ubi.distributed',
-      data: { userId, amount, distributionId },
+      data: {
+        user_id: userId,
+        tenant_id: tenantId ?? 'default',
+        pool_id: poolId,
+        amount,
+        currency: 'UBI',
+        period: distributionId,
+        distribution_id: distributionId,
+      },
     }),
   });
   

@@ -30,7 +30,7 @@ const configSchema = z.object({
   temporal: z.object({
     address: z.string(),
     namespace: z.string().default('default'),
-    taskQueue: z.string().default('ubi-engine'),
+    taskQueue: z.string().default('ubi-cms'),
   }),
   ubi: z.object({
     poolInitial: z.number(),
@@ -96,7 +96,7 @@ export const config: Config = configSchema.parse({
   temporal: {
     address: process.env.TEMPORAL_ADDRESS || 'localhost:7233',
     namespace: process.env.TEMPORAL_NAMESPACE || 'default',
-    taskQueue: process.env.TEMPORAL_TASK_QUEUE || 'ubi-engine',
+    taskQueue: process.env.TEMPORAL_TASK_QUEUE || 'ubi-cms',
   },
   ubi: {
     poolInitial: parseInt(process.env.UBI_POOL_INITIAL || '1000000', 10),

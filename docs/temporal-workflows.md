@@ -6,9 +6,49 @@ This document describes the Temporal workflow system for the Sovereign Economic 
 
 The platform uses [Temporal](https://temporal.io/) for workflow orchestration, enabling reliable execution of long-running business processes with built-in retry logic, durability, and observability.
 
+### Where workflows live (read this first)
+
+There are **two** workflow-related locations in the repository:
+
+1. **Central worker package — `workflows/`**  
+   - **Worker entry:** [`workflows/src/worker.ts`](../../workflows/src/worker.ts)  
+   - **Default task queue:** `ubi-cms` (see [`workflows/src/config.ts`](../../workflows/src/config.ts))  
+   - **Workflow implementations:** [`workflows/src/workflows/*.ts`](../../workflows/src/workflows) — e.g. `ubiDistributionWorkflow`, `treasuryCompoundWorkflow`, `payoutWorkflow`, `agentExecutionWorkflow`, etc.  
+   - **Activities:** [`workflows/src/activities/*.ts`](../../workflows/src/activities)  
+   This is the **single process** in the repo that calls `Worker.create` and polls Temporal.
+
+2. **Service-local workflow sources** — `services/ubi-engine/src/workflows/`, `services/treasury-engine/src/workflows/`  
+   These TypeScript files define workflows using `@temporalio/workflow` but are **not** registered by the `workflows/` worker. They are useful as **reference**, alternate packaging, or future extraction — **unless you deploy a separate worker** that loads them.
+
+### UBI Engine admin API vs central worker (misalignment)
+
+[`services/ubi-engine/src/api/controllers/admin-controller.ts`](../../services/ubi-engine/src/api/controllers/admin-controller.ts) starts a workflow by name **`dailyDistributionWorkflow`** on the task queue from config (default **`ubi-engine`**).
+
+The **central worker** registers workflows from **`workflows/src/workflows/`**, where the UBI distribution workflow is named **`ubiDistributionWorkflow`** and the default queue is **`ubi-cms`**.
+
+**Until these are unified**, starting workflows from `ubi-engine` will **not** be picked up by the default `workflows/` worker. Align **`TEMPORAL_TASK_QUEUE`** and workflow **type names** across client and worker, or run a worker built from the same bundle the service expects.
+
+### Portal UI visualization
+
+The portal exposes **Dashboard → Admin → Workflows** (`/dashboard/system/workflows`) and **Architecture** (`/dashboard/system/architecture`). Both render the same interactive map with baseline nodes for **manual / schedule / NATS / API** triggers and the **nine** workflow types registered under `workflows/src/workflows/`, wired to the **Temporal Worker** node. The map is documentation and design tooling; it does not start Temporal runs. Outputs and env vars for saving layout are described in [`generated/architecture/README.md`](../generated/architecture/README.md) and [Environment variables — Portal architecture routes](./environment-variables.md#portal-architecture-routes-nextjs-server-only).
+
+---
+
 ## Configuration
 
-### UBI Engine
+### Central worker (`workflows/`)
+
+**Location:** `workflows/src/config.ts`
+
+```typescript
+temporal: {
+  address: process.env.TEMPORAL_ADDRESS || 'localhost:7233',
+  namespace: process.env.TEMPORAL_NAMESPACE || 'default',
+  taskQueue: process.env.TEMPORAL_TASK_QUEUE || 'ubi-cms',
+}
+```
+
+### UBI Engine (service — client / local definitions)
 
 **Location:** `services/ubi-engine/src/config/index.ts`
 
@@ -20,7 +60,7 @@ temporal: {
 }
 ```
 
-### Treasury Engine
+### Treasury Engine (service — config only)
 
 **Location:** `services/treasury-engine/src/config/index.ts`
 
@@ -31,9 +71,27 @@ temporal: {
 }
 ```
 
+> **Note:** `services/treasury-engine` defines workflow files under `src/workflows/` but does **not** register a Temporal worker in that service; treasury-related execution for the **central** worker is under `workflows/src/workflows/treasury-*.workflow.ts`.
+
 ---
 
-## UBI Engine Workflows
+## Central worker workflows (`workflows/src/workflows`)
+
+| Workflow function | File | Purpose (summary) |
+|-------------------|------|-------------------|
+| `ubiDistributionWorkflow` | `ubi-distribution.workflow.ts` | UBI distribution with signals/queries |
+| `payoutWorkflow` | `payout.workflow.ts` | Payout processing |
+| `governanceExecutionWorkflow` | `governance-execution.workflow.ts` | Governance execution |
+| `agentExecutionWorkflow` | `agent-execution.workflow.ts` | Agent execution |
+| `treasuryCompoundWorkflow` | `treasury-compound.workflow.ts` | Treasury compounding |
+| `treasuryRebalanceWorkflow` | `treasury-rebalance.workflow.ts` | Treasury rebalance |
+| `referralConversionWorkflow` | `referral-conversion.workflow.ts` | Referral conversion |
+| `taskExpirationWorkflow` | `task-expiration.workflow.ts` | Task expiration |
+| `reputationRecalcWorkflow` | `reputation-recalc.workflow.ts` | Reputation recalculation |
+
+---
+
+## UBI Engine Workflows (service-local definitions)
 
 ### Daily Distribution Workflow
 
@@ -90,6 +148,8 @@ const handle = await client.workflow.start('dailyDistributionWorkflow', {
   workflowId: `distribution-${poolId}-${Date.now()}`,
 });
 ```
+
+> **Runtime check:** This expects a worker polling **`config.temporal.taskQueue`** (default **`ubi-engine`**) that registers **`dailyDistributionWorkflow`**. The repo’s default **`workflows/`** worker uses queue **`ubi-cms`** and **`ubiDistributionWorkflow`** instead — see [Overview](#overview).
 
 ---
 
@@ -148,7 +208,9 @@ const { recalculateAllEligibility } = proxyActivities<typeof activities>({
 
 ---
 
-## Treasury Engine Workflows
+## Treasury Engine Workflows (service-local definitions)
+
+These files live under **`services/treasury-engine/src/workflows/`** and mirror long-running patterns (risk, yield, rebalance, compound). The **central Temporal worker** in **`workflows/`** exposes related flows as **`treasuryCompoundWorkflow`** and **`treasuryRebalanceWorkflow`** — see [Central worker workflows](#central-worker-workflows-workflowssrcworkflows). Deploy only one source of truth per environment.
 
 ### Risk Assessment Workflow
 

@@ -113,6 +113,7 @@ export class ExecutionQueue {
 
   private async executeAgent(message: QueueMessage): Promise<void> {
     const { agentId, executionId, payload } = message;
+    let ownerUserId: string | undefined;
 
     try {
       // Get agent configuration
@@ -124,6 +125,7 @@ export class ExecutionQueue {
       }
 
       const agent = agentResult.rows[0];
+      ownerUserId = agent.user_id;
       const config = typeof agent.config === 'string' ? JSON.parse(agent.config) : agent.config;
 
       // Create execution context
@@ -157,6 +159,7 @@ export class ExecutionQueue {
         type: MessageType.AGENT_COMPLETED,
         agentId,
         executionId,
+        userId: ownerUserId,
         payload: result,
         timestamp: new Date(),
       });
@@ -181,6 +184,7 @@ export class ExecutionQueue {
         type: MessageType.AGENT_FAILED,
         agentId,
         executionId,
+        userId: ownerUserId,
         payload: { error: error.message },
         timestamp: new Date(),
       });

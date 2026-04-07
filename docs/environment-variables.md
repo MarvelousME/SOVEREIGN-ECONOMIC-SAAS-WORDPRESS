@@ -11,6 +11,7 @@ This document lists every environment variable used across the platform. Use `.e
 - [Quick Reference](#quick-reference)
 - [API (Backend)](#api-backend)
 - [Frontend (Portal UI)](#frontend-portal-ui)
+  - [Portal architecture routes (Next.js server only)](#portal-architecture-routes-nextjs-server-only)
 - [Docker Compose](#docker-compose)
 - [Generating Secrets](#generating-secrets)
 - [Environment-Specific Notes](#environment-specific-notes)
@@ -106,6 +107,19 @@ These variables are read at build time by Next.js. Variables prefixed with `NEXT
 
 > **Build-time vs Runtime:** In Next.js with `output: 'standalone'`, `NEXT_PUBLIC_*` vars are baked in at `npm run build` time. Set them as Docker build arguments (`--build-arg NEXT_PUBLIC_API_URL=...`) or in your CI/CD pipeline.
 
+### Portal architecture routes (Next.js server only)
+
+These are read by **API routes** under `frontend/portal-ui/src/app/api/architecture/` (not exposed as `NEXT_PUBLIC_*`). They gate **Save to repo**, **Live save**, and **Apply & rebuild** on the Architecture / Workflows dashboard pages.
+
+| Variable | Description | Example | Required |
+|----------|-------------|---------|----------|
+| `ARCHITECTURE_WRITE_SECRET` | If **set**, `POST /api/architecture/wiring` (and related writes) require header `x-architecture-secret` to match. If **unset**, writes are allowed without a header (convenient for local dev only). | Long random string | ❌ |
+| `ARCHITECTURE_ALLOW_APPLY` | Set to `true` to enable **Apply & rebuild** (`POST /api/architecture/apply`). | `true` | ❌ (default: disabled) |
+
+The UI stores the optional secret in **`sessionStorage`** (`architecture_write_secret`) when the user types it in the canvas panel.
+
+See [generated/architecture/README.md](../generated/architecture/README.md) for output paths and safety notes.
+
 **Docker build example:**
 ```bash
 docker build \
@@ -121,7 +135,20 @@ docker build \
 
 These variables are used in `docker-compose.production.yml` and `docker-compose.local.yml`.
 
-### PostgreSQL Container
+### `docker-compose.local.yml` (minimal stack)
+
+Postgres and the API container use fixed dev values in this file (override only if you edit Compose):
+
+| Variable | Value in file | Notes |
+|----------|----------------|--------|
+| `POSTGRES_DB` | `ubi_dev` | Database name |
+| `POSTGRES_USER` | `postgres` | Superuser |
+| `POSTGRES_PASSWORD` | `devpassword123` | Must match `DB_PASSWORD` / `DATABASE_URL` on the `api` service in the same compose file |
+| API `DB_*` / `DATABASE_URL` | same password, DB `ubi_dev` | API connects to the `postgres` service hostname inside the Compose network |
+
+If you run the API **on the host** while Postgres runs in Docker, point `DB_HOST=localhost` and use the same password and database name as above.
+
+### PostgreSQL Container (typical production / `docker-compose.production.yml`)
 
 | Variable | Description | Example |
 |----------|-------------|---------|
@@ -170,7 +197,7 @@ JWT_SECRET=dev-jwt-secret-change-in-production-must-be-at-least-32-chars
 DB_HOST=localhost
 DB_NAME=ubi_dev
 DB_USER=postgres
-DB_PASSWORD=dev_password
+DB_PASSWORD=devpassword123
 CORS_ORIGIN=http://localhost:3001
 ```
 

@@ -1,4 +1,5 @@
 import { Pool } from 'pg';
+import { mainTreasuryWorkspaceSettings } from '../constants/treasury';
 
 export interface TenantWorkspace {
   id: string;
@@ -12,12 +13,13 @@ export class ProvisionService {
   constructor(private db: Pool) {}
 
   async createWorkspace(slug: string, name: string): Promise<TenantWorkspace> {
+    const settingsJson = JSON.stringify(mainTreasuryWorkspaceSettings());
     const q = `
-      INSERT INTO tenant_workspaces (slug, name, status)
-      VALUES ($1, $2, 'active')
+      INSERT INTO tenant_workspaces (slug, name, status, settings)
+      VALUES ($1, $2, 'active', $3::jsonb)
       RETURNING id, slug, name, status, created_at
     `;
-    const r = await this.db.query(q, [slug, name]);
+    const r = await this.db.query(q, [slug, name, settingsJson]);
     const row = r.rows[0];
     return {
       id: row.id,

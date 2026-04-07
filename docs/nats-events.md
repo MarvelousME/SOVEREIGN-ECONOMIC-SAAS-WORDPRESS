@@ -4,7 +4,15 @@ This document describes the NATS event system for the Sovereign Economic SaaS pl
 
 ## Overview
 
-The platform uses NATS JetStream for asynchronous event-driven communication between services. Events follow the [CloudEvents v1.0](https://cloudevents.io/) specification for standardization.
+The platform uses **NATS** for asynchronous, subject-based messaging between services. Event **shapes** are defined in a CloudEvents-style envelope in [`shared/events/schemas.ts`](../../shared/events/schemas.ts) and follow the [CloudEvents v1.0](https://cloudevents.io/) specification for documentation and shared typing.
+
+**Transport details (important):**
+
+- Most services use the **NATS core API** (`connect`, `connection.publish`, `connection.subscribe`) with plain JSON payloads. Examples: `services/ubi-engine`, `services/ledger-service`, `services/treasury-engine`, `services/notifications-service`, `services/task-marketplace`.
+- **JetStream** is used where durable work queues are required — notably **`services/agent-runner`**, which declares the `AGENT_EXECUTION` stream on subjects `agent.execute.*` and `agent.control.*` and consumes with `jetstream().subscribe(...)`.
+- The shared library [`shared/nats-client`](../../shared/nats-client) obtains a JetStream client for publishing, but **whether messages are persisted** depends on server JetStream configuration and stream setup; not every subject in this repo is backed by a stream.
+
+See **[Implementation index](#implementation-index-subjects--services)** below for subjects that appear in code today.
 
 ## Event Schema Definition
 
@@ -52,13 +60,17 @@ interface UserReference {
 
 For SAAOS-style domain event names and how they map to this platform’s NATS subjects, see [Event taxonomy crosswalk](./architecture/event-taxonomy-crosswalk.md).
 
+Not every row below has a live publisher yet; the **[implementation index](#implementation-index-subjects--services)** lists what is **actually emitted or subscribed to** in this repository.
+
 ### Ledger Events
 
 | Event Type | Subject | Description |
 |------------|---------|-------------|
-| `ledger.transaction.created` | `ledger.transaction.created` | New transaction created |
+| `ledger.transaction.created` | `ledger.transaction.created` | New transaction created (`services/ledger-service`) |
 | `ledger.transaction.reversed` | `ledger.transaction.reversed` | Transaction reversed |
+| `ledger.account.created` | `ledger.account.created` | Account created (`services/ledger-service`) |
 | `ledger.balance.updated` | `ledger.balance.updated` | Account balance changed |
+| `ledger.transfer.request` | `ledger.transfer.request` | UBI claim requests ledger transfer (`services/ubi-engine` publisher) |
 
 #### TransactionCreatedData
 
@@ -151,10 +163,11 @@ interface UBIClaimedData {
 
 | Event Type | Subject | Description |
 |------------|---------|-------------|
-| `treasury.deposit` | `treasury.deposit` | Funds deposited |
+| `treasury.deposit` | `treasury.deposit` | Funds deposited (`services/treasury-engine`) |
 | `treasury.withdraw` | `treasury.withdraw` | Funds withdrawn |
 | `treasury.compounded` | `treasury.compounded` | Interest compounded |
 | `treasury.rebalanced` | `treasury.rebalanced` | Portfolio rebalanced |
+| `treasury.yield.harvested` | `treasury.yield.harvested` | Yield harvested (`services/treasury-engine`) |
 
 #### TreasuryDepositData
 
@@ -189,13 +202,19 @@ interface TreasuryRebalancedData {
 
 ### Task Events
 
+Emitted by **`services/task-marketplace`** (`EventSubject` in `src/types/events.types.ts`):
+
 | Event Type | Subject | Description |
 |------------|---------|-------------|
 | `task.created` | `task.created` | New task created |
 | `task.claimed` | `task.claimed` | Task claimed by user |
-| `task.submitted` | `task.submitted` | Task submitted for review |
+| `task.completed` | `task.completed` | Task completed (awaiting / after verification flow) |
 | `task.approved` | `task.approved` | Task approved, reward issued |
 | `task.rejected` | `task.rejected` | Task rejected |
+| `task.expired` | `task.expired` | Task expired |
+| `task.disputed` | `task.disputed` | Task disputed |
+
+> **`task.submitted`** appears in `shared/events/schemas.ts` as a catalog constant but is **not** published by `task-marketplace` today; use `task.completed` or extend the service if you need an explicit submitted state event.
 
 #### TaskApprovedData
 
@@ -218,9 +237,9 @@ interface TaskApprovedData {
 
 | Event Type | Subject | Description |
 |------------|---------|-------------|
-| `reward.calculated` | `reward.calculated` | Reward calculation complete |
+| `reward.calculated` | `reward.calculated` | Reward calculation complete (`services/rewards-engine`) |
 | `reward.distributed` | `reward.distributed` | Reward distributed to user |
-| `reward.claimed` | `reward.claimed` | Reward claimed by user |
+| `reward.claimed` | `reward.claimed` | Reward claimed by user (schema/catalog; confirm publishers for your deployment) |
 
 #### RewardDistributedData
 
@@ -244,10 +263,12 @@ interface RewardDistributedData {
 
 | Event Type | Subject | Description |
 |------------|---------|-------------|
-| `agent.deployed` | `agent.deployed` | Agent deployed |
-| `agent.executed` | `agent.executed` | Agent execution completed |
-| `agent.revenue` | `agent.revenue` | Revenue recorded |
-| `agent.error` | `agent.error` | Agent error occurred |
+| `agent.deployed` | `agent.deployed` | Agent deployed (e.g. consumed by `services/referral-service`) |
+| `agent.executed` | `agent.executed` | Agent execution completed (catalog) |
+| `agent.execute.*` | `agent.execute.*` | JetStream work-queue subjects (`services/agent-runner` stream `AGENT_EXECUTION`) |
+| `agent.control.*` | `agent.control.*` | Control plane subjects (same stream) |
+| `agent.revenue` | `agent.revenue` | Revenue recorded (`services/ubi-engine` consumer) |
+| `agent.error` | `agent.error` | Agent error occurred (catalog) |
 
 #### AgentExecutedData
 
@@ -269,11 +290,19 @@ interface AgentExecutedData {
 
 ### Governance Events
 
-| Event Type | Subject | Description |
-|------------|---------|-------------|
-| `governance.proposal.created` | `governance.proposal.created` | New proposal created |
-| `governance.vote.cast` | `governance.vote.cast` | Vote cast |
-| `governance.proposal.executed` | `governance.proposal.executed` | Proposal executed |
+**Catalog / schema** (prefix `governance.*`) in `shared/events/schemas.ts`.
+
+**As implemented in `services/governance-service`** (subjects are **without** the `governance.` prefix):
+
+| Subject | Description |
+|---------|-------------|
+| `proposal.created` | New proposal |
+| `vote.cast` | Vote recorded |
+| `voting_power.delegated` | Delegation updated |
+| `proposal.executed` | Proposal executed |
+| `proposal.finalized` | Proposal finalized |
+
+**Notifications:** `services/notifications-service` subscribes to `governance.proposal` (string in code) for user-facing alerts — align producers and consumers when wiring staging/prod.
 
 #### VoteCastData
 
@@ -423,7 +452,7 @@ nats: {
 ```
 ┌─────────────────┐     ┌─────────────────────┐     ┌──────────────────────┐
 │  Task Service   │────▶│  NATS               │────▶│  UBI Engine          │
-│  task.approved  │     │  (task.*)           │     │  Event Consumer      │
+│  task.completed │     │  (task.*)           │     │  Event Consumer      │
 └─────────────────┘     └─────────────────────┘     └──────────────────────┘
                                                                  │
                         ┌────────────────────────────────────────┼────────────────┐
@@ -434,6 +463,39 @@ nats: {
                └────────────────┘              └─────────────────────────┘  │  Cache         │
                                                                                └────────────────┘
 ```
+
+---
+
+## Implementation index (subjects & services)
+
+Quick reference for **what the codebase publishes or subscribes to today**. Payloads are usually JSON; CloudEvent wrapping depends on the service.
+
+### Publishers (representative)
+
+| Area | Service / path | Subjects (examples) |
+|------|----------------|---------------------|
+| UBI | `services/ubi-engine/src/events/event-publisher.ts` | `ubi.distribution.scheduled`, `ubi.distribution.completed`, `ubi.distribution.failed`, `ubi.claimed`, `ledger.transfer.request` |
+| UBI consumer | `services/ubi-engine/src/events/event-consumer.ts` | Subscribes: `task.completed`, `referral.converted`, `agent.revenue` |
+| Ledger | `services/ledger-service/src/services/events.service.ts` | `ledger.transaction.created`, `ledger.transaction.reversed`, `ledger.account.created`, `ledger.balance.updated` |
+| Treasury | `services/treasury-engine/src/services/event.service.ts` | `treasury.deposit`, `treasury.withdraw`, `treasury.compounded`, `treasury.rebalanced`, `treasury.yield.harvested` |
+| Treasury consumer | `services/treasury-engine/src/index.ts` | Subscribes: `ledger.transaction.created` |
+| Tasks | `services/task-marketplace/src/services/event.service.ts` | `task.created`, `task.claimed`, `task.completed`, `task.approved`, `task.rejected`, `task.expired`, `task.disputed` |
+| Rewards | `services/rewards-engine/src/domain/services/RewardsService.ts` | `reward.calculated`, `reward.distributed` |
+| Referrals | `services/referral-service/src/services/eventListener.ts` | Subscribes: `user.registered`, `task.completed`, `agent.deployed`, `reward.distributed` |
+| Governance | `services/governance-service/src/services/governance.service.ts` | `proposal.created`, `vote.cast`, `voting_power.delegated`, `proposal.executed`, `proposal.finalized` |
+| Compliance | `services/compliance-engine/src/services/events.service.ts` | `ComplianceEvents.*` → e.g. `consent.recorded`, `compliance.review.requested`, `policy.action_blocked`, `abuse.signal.detected`, … |
+| Affiliate | `services/affiliate-intelligence/src/services/event-publisher.ts` | `affiliate.link.ingested`, `affiliate.link.normalized`, `merchant.extracted`, `offer.detected`, `offer.updated`, `affiliate.freshness.scored`, `affiliate.url.analyzed` |
+| Landing pages | `services/landing-page-factory/src/utils/event-publisher.ts` | `page.generated`, `page.reviewed`, `page.published`, `page.rollback`, `disclosure.injected` |
+| Data vault | `services/data-vault-service/src/services/data-vault.service.ts` | `data.stored`, `data.updated`, `data.deleted`, `consent.granted`, `consent.revoked`, `data.accessed`, `data.exported` |
+| Agent runner | `services/agent-runner/src/queue/ExecutionQueue.ts` | JetStream: `agent.execute.*`, `agent.control.*` (stream `AGENT_EXECUTION`) |
+
+### Notifications service — subscribed subjects
+
+`services/notifications-service/src/services/events.service.ts` listens for:
+
+`task.assigned`, `task.approved`, `task.rejected`, `ubi.distributed`, `reward.issued`, `treasury.performance`, `agent.execution.complete`, `governance.proposal`
+
+**Integration gap:** task marketplace emits **`task.claimed`**, not `task.assigned`; UBI engine emits **`ubi.distribution.completed`**, not `ubi.distributed`. Treat this list as **target wiring** — align publisher subjects or update the notification service when hardening integrations.
 
 ---
 

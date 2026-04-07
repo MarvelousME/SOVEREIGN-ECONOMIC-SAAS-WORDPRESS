@@ -4,10 +4,7 @@ import dynamic from 'next/dynamic';
 import { Network } from 'lucide-react';
 
 const ArchitectureCanvas = dynamic(
-  () =>
-    import('@/components/system-architecture/architecture-canvas').then((m) => ({
-      default: m.ArchitectureCanvas,
-    })),
+  () => import('@/components/system-architecture/architecture-canvas'),
   {
     ssr: false,
     loading: () => (

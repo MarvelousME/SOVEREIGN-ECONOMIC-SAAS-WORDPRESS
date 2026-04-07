@@ -40,10 +40,12 @@ entryPoints:
 
 # Providers
 providers:
-  # Docker provider for automatic service discovery
+  # Container discovery: Docker Engine or Podman (Podman uses the same Docker-compatible API).
+  # Mount the host socket into Traefik as /var/run/docker.sock (see TRAEFIK_PLATFORM_SOCKET in compose).
   docker:
     endpoint: "unix:///var/run/docker.sock"
     exposedByDefault: false
+    allowEmptyServices: true
     network: ubi-cms-network
     watch: true
     defaultRule: "Host(`{{ normalize .Name }}.ubi-cms.local`)"
@@ -77,15 +79,13 @@ certificatesResolvers:
       storage: /etc/traefik/acme-dev.json
       tlsChallenge: {}
 
-# Logging
+# Logging (stdout — works without /var/log/traefik in the container)
 log:
   level: INFO
   format: json
-  filePath: /var/log/traefik/traefik.log
 
-# Access Logs
+# Access logs (stdout JSON; scrape via container logs or forwarder)
 accessLog:
-  filePath: /var/log/traefik/access.log
   format: json
   bufferingSize: 100
   filters:
@@ -124,13 +124,14 @@ global:
   checkNewVersion: true
   sendAnonymousUsage: false
 
-# Tracing (optional - OpenTelemetry)
+# OpenTelemetry traces (OTLP HTTP). Point at your collector; override with TRAEFIK_TRACING_OTLP_HTTP_ENDPOINT.
+# Use docker/compose/docker-compose.observability.yml or attach gateway to the same network as otel-collector.
 tracing:
+  serviceName: traefik-ubi-cms
+  sampleRate: 1.0
   otlp:
     http:
-      endpoint: http://otel-collector:4318
-    grpc:
-      endpoint: otel-collector:4317
+      endpoint: http://otel-collector:4318/v1/traces
 
 # Pilot (optional - Traefik Pilot for monitoring)
 # pilot:

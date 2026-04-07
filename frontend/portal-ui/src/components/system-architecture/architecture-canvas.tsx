@@ -26,6 +26,10 @@ import {
   BASELINE_EDGE_IDS,
   BASELINE_NODE_IDS,
 } from './architecture-data';
+
+/** React Flow types only on the client — baseline data stays xyflow-free for server imports. */
+const RF_BASELINE_NODES = canvasBaselineNodes as Node<SystemNodeData>[];
+const RF_INITIAL_EDGES = initialEdges as Edge[];
 import {
   type PaletteItem,
   PALETTE_ITEMS,
@@ -62,8 +66,8 @@ function decorateEdges(edges: Edge[]): Edge[] {
 
 function ArchitectureCanvasInner() {
   const { screenToFlowPosition } = useReactFlow();
-  const [nodes, setNodes, onNodesChange] = useNodesState(canvasBaselineNodes);
-  const [edges, setEdges, onEdgesChange] = useEdgesState(decorateEdges(initialEdges));
+  const [nodes, setNodes, onNodesChange] = useNodesState(RF_BASELINE_NODES);
+  const [edges, setEdges, onEdgesChange] = useEdgesState(decorateEdges(RF_INITIAL_EDGES));
   const [suggestionsOpen, setSuggestionsOpen] = useState(true);
   const [instantSave, setInstantSave] = useState(false);
   const lastSavedJsonRef = useRef<string>('');
@@ -96,8 +100,8 @@ function ArchitectureCanvasInner() {
   );
 
   const resetBaseline = useCallback(() => {
-    setNodes(canvasBaselineNodes);
-    setEdges(decorateEdges(initialEdges));
+    setNodes(RF_BASELINE_NODES);
+    setEdges(decorateEdges(RF_INITIAL_EDGES));
     toast.success('Reset to documented baseline');
   }, [setNodes, setEdges]);
 
@@ -458,3 +462,5 @@ export function ArchitectureCanvas() {
     </ReactFlowProvider>
   );
 }
+
+export default ArchitectureCanvas;

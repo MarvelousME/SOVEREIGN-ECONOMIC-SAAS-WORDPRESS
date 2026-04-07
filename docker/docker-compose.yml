@@ -8,8 +8,10 @@ services:
     ports:
       - "2025:80"
       - "2026:443"
+      - "8082:8082"  # Prometheus metrics (from traefik.yml entrypoint metrics)
     volumes:
       - ./configs/traefik:/etc/traefik
+      - ${TRAEFIK_PLATFORM_SOCKET:-/var/run/docker.sock}:/var/run/docker.sock:ro
     networks:
       - ubi-network
     depends_on:

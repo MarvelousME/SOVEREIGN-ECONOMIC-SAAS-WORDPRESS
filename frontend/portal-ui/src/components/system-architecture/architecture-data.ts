@@ -1,5 +1,7 @@
-import type { Edge, Node } from '@xyflow/react';
-
+/**
+ * Baseline diagram data only — no @xyflow/react import so API routes can import this file
+ * without pulling React Flow into the Next.js server bundle (fixes RSC/webpack runtime errors).
+ */
 export type SystemCategory = 'infra' | 'core' | 'platform' | 'edge' | 'data' | 'workflow' | 'trigger';
 
 export type SystemNodeData = {
@@ -10,9 +12,27 @@ export type SystemNodeData = {
   port?: string;
 };
 
+/** Serializable node row (React Flow types applied only in client components). */
+export type BaselineNode = {
+  id: string;
+  type: string;
+  position: { x: number; y: number };
+  data: SystemNodeData;
+  /** When false, React Flow will not allow delete (baseline nodes). */
+  deletable?: boolean;
+};
+
+export type BaselineEdge = {
+  id: string;
+  source: string;
+  target: string;
+  label?: string;
+  animated?: boolean;
+};
+
 const cat = (category: SystemCategory) => category;
 
-export const initialNodes: Node<SystemNodeData>[] = [
+export const initialNodes: BaselineNode[] = [
   // Infra row
   { id: 'nats', type: 'system', position: { x: 80, y: 40 }, data: { label: 'NATS', sub: 'Messaging', category: cat('infra') } },
   { id: 'temporal', type: 'system', position: { x: 320, y: 40 }, data: { label: 'Temporal', sub: 'Workflows', category: cat('infra') } },
@@ -62,12 +82,12 @@ export const initialNodes: Node<SystemNodeData>[] = [
 ];
 
 /** Baseline nodes on the canvas — not removable with Delete/Backspace (palette nodes are deletable). */
-export const canvasBaselineNodes: Node<SystemNodeData>[] = initialNodes.map((n) => ({
+export const canvasBaselineNodes: BaselineNode[] = initialNodes.map((n) => ({
   ...n,
   deletable: false,
 }));
 
-export const initialEdges: Edge[] = [
+export const initialEdges: BaselineEdge[] = [
   // Triggers → entry points
   { id: 'e-trig-manual-portal', source: 'trig-manual', target: 'portal', label: 'Operator / UI', animated: true },
   { id: 'e-trig-schedule-temporal', source: 'trig-schedule', target: 'temporal', label: 'Schedules', animated: true },

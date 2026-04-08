@@ -41,6 +41,26 @@ The Agent Control Plane is responsible for:
 - Token usage limits
 - Cost budgets
 
+### Revenue Tracking
+
+The Agent Control Plane integrates with the Ledger Service to track agent revenue in real-time.
+
+- **Ledger Integration**: Each agent transaction is recorded in the ledger for immutable audit trails
+- **Revenue Calculation**: Revenue is calculated based on completed tasks, successful executions, and any configured revenue sharing models
+- **Balance Tracking**: Real-time balance updates via ledger service webhooks
+- **Payout Scheduling**: Automated payout triggers based on configurable thresholds
+
+### Resource Monitoring
+
+Monitor agent resource consumption with built-in CPU and memory tracking.
+
+- **CPU Monitoring**: Track CPU core usage per agent with configurable thresholds
+- **Memory Tracking**: Monitor memory limits (MB) and alert when approaching limits
+- **Storage Quotas**: Track storage usage against allocated quotas
+- **API Rate Limiting**: Real-time tracking of API call volumes
+- **Token Usage Limits**: Monitor token consumption for LLM-powered agents
+- **Cost Budgets**: Alerting system for budget consumption
+
 ## API Endpoints
 
 ### Agent Management
@@ -64,8 +84,13 @@ POST   /api/v1/agents/:id/pause   - Pause running agent
 
 ```
 GET    /api/v1/agents/:id/logs    - Get execution logs
-GET    /api/v1/agents/:id/metrics - Get performance metrics
+GET    /api/v1/agents/:id/metrics - Get performance metrics (revenue and resource usage)
 ```
+
+**Metrics Response** includes:
+- Revenue: Total earned, pending, and paid amounts
+- Resources: CPU usage (%), memory usage (MB), storage (MB)
+- Performance: Task completion rate, uptime, error count
 
 ## Configuration
 
@@ -79,6 +104,33 @@ Key configuration areas:
 - **OPA**: Policy engine integration
 - **Temporal**: Workflow orchestration
 - **Keycloak**: Authentication and authorization
+
+### Ledger Service Configuration
+
+```bash
+# Ledger service URL for revenue tracking
+LEDGER_SERVICE_URL=http://ledger-service:4000
+
+# Revenue calculation settings
+REVENUE_TASK_RATE=0.05        # Base rate per completed task (USD)
+REVENUE_SUCCESS_BONUS=0.02   # Bonus for successful executions (USD)
+REVENUE_MIN_PAYOUT=10.00      # Minimum balance before payout trigger (USD)
+```
+
+### Resource Monitoring Configuration
+
+```bash
+# CPU monitoring
+ENABLE_CPU_MONITORING=true
+CPU_ALERT_THRESHOLD=80        # Alert when CPU exceeds 80%
+
+# Memory monitoring
+ENABLE_MEMORY_MONITORING=true
+MEMORY_ALERT_THRESHOLD=90     # Alert when memory exceeds 90%
+
+# Polling interval for resource checks (seconds)
+RESOURCE_POLL_INTERVAL=30
+```
 
 ## Installation
 

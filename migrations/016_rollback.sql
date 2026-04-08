@@ -1,0 +1,4 @@
+-- Rollback for Migration 016: Missing Migration
+-- This migration file was missing from the repository
+-- No rollback possible without knowing what was originally applied
+-- If schema objects exist that need rollback, they should be documented here

@@ -3,6 +3,11 @@ import { notificationService } from '../services/notification.service';
 import { logger } from '../utils/logger';
 import { z } from 'zod';
 import { authMiddleware } from '../middleware/auth.middleware';
+import {
+  NotificationType,
+  NotificationChannel,
+  NotificationStatus
+} from '../types';
 
 const router = Router();
 

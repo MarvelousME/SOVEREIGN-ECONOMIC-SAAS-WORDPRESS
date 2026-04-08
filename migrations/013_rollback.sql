@@ -1,0 +1,4 @@
+-- Rollback for Migration 013: Empty/Broken Migration
+-- This migration was empty - nothing to rollback
+-- This file serves as a placeholder to maintain migration sequence integrity
+-- If 013 was previously applied, no action needed

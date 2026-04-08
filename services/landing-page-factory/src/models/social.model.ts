@@ -1,7 +1,7 @@
 import { Pool } from 'pg';
 import { v4 as uuidv4 } from 'uuid';
 
-export type SocialProvider = 'x' | 'linkedin' | 'facebook' | 'tiktok';
+export type SocialProvider = 'x' | 'linkedin' | 'facebook' | 'tiktok' | 'instagram' | 'youtube';
 export type SocialPostStatus =
   | 'queued'
   | 'scheduled'

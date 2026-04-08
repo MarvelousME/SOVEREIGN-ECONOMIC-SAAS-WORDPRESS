@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": [
+      "Read(//c/Users/marvi/Desktop/Projects/Production/SOVEREIGN-ECONOMIC-SAAS-WORDPRESS/services/**)",
+      "Read(//c/Users/marvi/Desktop/Projects/Production/SOVEREIGN-ECONOMIC-SAAS-WORDPRESS/frontend/**)"
+    ]
+  }
+}

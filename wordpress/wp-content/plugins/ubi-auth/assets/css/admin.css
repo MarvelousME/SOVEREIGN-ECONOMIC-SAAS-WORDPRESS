@@ -1,0 +1,219 @@
+/**
+ * UBI Auth Admin Styles
+ * Version: 1.0.4
+ */
+
+.ubi-api-keys-wrap {
+    max-width: 1200px;
+}
+
+.ubi-api-keys-container {
+    margin-top: 20px;
+}
+
+.ubi-generate-section {
+    background: #fff;
+    padding: 20px;
+    border: 1px solid #ccc;
+    margin-bottom: 20px;
+}
+
+.ubi-existing-keys {
+    background: #fff;
+    padding: 20px;
+    border: 1px solid #ccc;
+}
+
+.ubi-keys-table {
+    margin-top: 15px;
+}
+
+.ubi-keys-table .column-name {
+    width: 20%;
+}
+
+.ubi-keys-table .column-prefix {
+    width: 12%;
+}
+
+.ubi-keys-table .column-user {
+    width: 15%;
+}
+
+.ubi-keys-table .column-created,
+.ubi-keys-table .column-last-used {
+    width: 15%;
+}
+
+.ubi-keys-table .column-status {
+    width: 10%;
+}
+
+.ubi-keys-table .column-actions {
+    width: 13%;
+}
+
+.ubi-status {
+    display: inline-block;
+    padding: 3px 8px;
+    border-radius: 3px;
+    font-size: 12px;
+    font-weight: 500;
+}
+
+.ubi-status-active {
+    background: #d4edda;
+    color: #155724;
+}
+
+.ubi-status-revoked {
+    background: #f8d7da;
+    color: #721c24;
+}
+
+.ubi-warning {
+    background: #fff3cd;
+    border: 1px solid #ffc107;
+    padding: 10px 15px;
+    border-radius: 4px;
+    color: #856404;
+    margin: 15px 0;
+}
+
+.ubi-no-keys {
+    color: #666;
+    font-style: italic;
+    padding: 20px;
+    text-align: center;
+}
+
+.ubi-revoked-label {
+    color: #999;
+    font-style: italic;
+}
+
+/* Modal Styles */
+.ubi-modal {
+    position: fixed;
+    z-index: 100000;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.5);
+    overflow: auto;
+}
+
+.ubi-modal-content {
+    background-color: #fefefe;
+    margin: 5% auto;
+    padding: 25px;
+    border: 1px solid #888;
+    width: 500px;
+    max-width: 90%;
+    border-radius: 5px;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    position: relative;
+}
+
+.ubi-modal-close {
+    color: #aaa;
+    float: right;
+    font-size: 28px;
+    font-weight: bold;
+    cursor: pointer;
+    position: absolute;
+    right: 15px;
+    top: 10px;
+}
+
+.ubi-modal-close:hover,
+.ubi-modal-close:focus {
+    color: #000;
+    text-decoration: none;
+    cursor: pointer;
+}
+
+.ubi-key-display {
+    background: #f0f0f0;
+    padding: 15px;
+    border-radius: 4px;
+    margin: 15px 0;
+    word-break: break-all;
+}
+
+.ubi-key-display code {
+    display: block;
+    font-size: 14px;
+    color: #333;
+    margin-bottom: 10px;
+}
+
+.ubi-key-name-display,
+.ubi-key-prefix-display {
+    margin: 10px 0;
+}
+
+.ubi-key-name-display span,
+.ubi-key-prefix-display span {
+    font-weight: bold;
+}
+
+/* Spinner */
+.ubi-spinner {
+    display: inline-block;
+    width: 20px;
+    height: 20px;
+    border: 2px solid #f3f3f3;
+    border-top: 2px solid #0073aa;
+    border-radius: 50%;
+    animation: ubi-spin 1s linear infinite;
+    margin-left: 10px;
+    vertical-align: middle;
+}
+
+@keyframes ubi-spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+/* Success/Error notices */
+.ubi-notice {
+    padding: 12px 15px;
+    margin: 15px 0;
+    border-radius: 4px;
+}
+
+.ubi-notice-success {
+    background: #d4edda;
+    border: 1px solid #c3e6cb;
+    color: #155724;
+}
+
+.ubi-notice-error {
+    background: #f8d7da;
+    border: 1px solid #f5c6cb;
+    color: #721c24;
+}
+
+/* Loading state */
+.ubi-loading {
+    opacity: 0.6;
+    pointer-events: none;
+}
+
+.ubi-loading .ubi-spinner {
+    display: inline-block;
+}
+
+/* Clipboard success feedback */
+.ubi-copy-success {
+    color: #28a745 !important;
+    font-weight: bold;
+}
+
+.ubi-copy-btn.clicked {
+    background: #28a745;
+    border-color: #28a745;
+    color: #fff;
+}

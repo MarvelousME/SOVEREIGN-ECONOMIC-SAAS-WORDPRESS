@@ -1,4 +1,5 @@
 import { AgentService } from '../services/AgentService';
+import axios from 'axios';
 import database from '../utils/database';
 import logger from '../utils/logger';
 import {
@@ -13,6 +14,7 @@ jest.mock('../utils/logger');
 jest.mock('uuid', () => ({
   v4: jest.fn(() => 'test-uuid-1234'),
 }));
+jest.mock('axios');
 
 describe('AgentService', () => {
   let agentService: AgentService;
@@ -409,6 +411,13 @@ describe('AgentService', () => {
   });
 
   describe('getAgentMetrics', () => {
+    const mockResourceUsage = { avgCpuPercent: 45, avgMemoryMB: 512, avgStorageMB: 0 };
+    const mockRevenue = 1250.75;
+
+    beforeEach(() => {
+      jest.spyOn(global, 'fetch').mockReset();
+    });
+
     it('should return metrics for agent with executions', async () => {
       const metricsRow = {
         agent_id: mockAgentId,
@@ -423,22 +432,36 @@ describe('AgentService', () => {
       (database.query as jest.Mock)
         .mockResolvedValueOnce({ rows: [mockAgentRow] })
         .mockResolvedValueOnce({ rows: [metricsRow] });
+      (axios.get as jest.Mock).mockResolvedValueOnce({ data: { revenue: mockRevenue } });
+      (fetch as jest.Mock).mockResolvedValueOnce({
+        ok: true,
+        text: async () => `container_cpu_usage_seconds_total{agent_id="agent-456"} 0.45
+container_memory_usage_bytes{agent_id="agent-456"} 536870912`,
+      });
 
       const result = await agentService.getAgentMetrics(mockAgentId, mockUserId, '24h');
 
       expect(result?.executionCount).toBe(100);
       expect(result?.successCount).toBe(95);
       expect(result?.failureCount).toBe(5);
+      expect(result?.totalRevenue).toBe(mockRevenue);
+      expect(result?.resourceUsage).toEqual(mockResourceUsage);
     });
 
     it('should return default metrics when no executions', async () => {
       (database.query as jest.Mock)
         .mockResolvedValueOnce({ rows: [mockAgentRow] })
         .mockResolvedValueOnce({ rows: [] });
+      (axios.get as jest.Mock).mockResolvedValueOnce({ data: { revenue: 0 } });
+      (fetch as jest.Mock).mockResolvedValueOnce({
+        ok: true,
+        text: async () => '',
+      });
 
       const result = await agentService.getAgentMetrics(mockAgentId, mockUserId, '24h');
 
       expect(result?.executionCount).toBe(0);
+      expect(result?.totalRevenue).toBe(0);
     });
 
     it('should return null when agent not found', async () => {
@@ -453,12 +476,116 @@ describe('AgentService', () => {
       (database.query as jest.Mock)
         .mockResolvedValueOnce({ rows: [mockAgentRow] })
         .mockResolvedValueOnce({ rows: [] });
+      (axios.get as jest.Mock).mockResolvedValueOnce({ data: { revenue: 0 } });
+      (fetch as jest.Mock).mockResolvedValueOnce({
+        ok: true,
+        text: async () => '',
+      });
 
       await agentService.getAgentMetrics(mockAgentId, mockUserId, '7d');
 
       const calls = (database.query as jest.Mock).mock.calls;
       const metricsCall = calls[1];
       expect(metricsCall[0]).toContain("NOW() - INTERVAL '7d'");
+    });
+
+    it('should fetch revenue from ledger service', async () => {
+      (database.query as jest.Mock)
+        .mockResolvedValueOnce({ rows: [mockAgentRow] })
+        .mockResolvedValueOnce({ rows: [] });
+      (axios.get as jest.Mock).mockResolvedValueOnce({ data: { revenue: mockRevenue } });
+      (fetch as jest.Mock).mockResolvedValueOnce({
+        ok: true,
+        text: async () => '',
+      });
+
+      const result = await agentService.getAgentMetrics(mockAgentId, mockUserId, '24h');
+
+      expect(axios.get).toHaveBeenCalledWith(
+        'http://localhost:3003/api/v1/agents/agent-456/revenue',
+        { params: { period: '24h' } }
+      );
+      expect(result?.totalRevenue).toBe(mockRevenue);
+    });
+
+    it('should return 0 revenue when ledger service is unavailable', async () => {
+      (database.query as jest.Mock)
+        .mockResolvedValueOnce({ rows: [mockAgentRow] })
+        .mockResolvedValueOnce({ rows: [] });
+      (axios.get as jest.Mock).mockRejectedValueOnce(new Error('Ledger service unavailable'));
+      (fetch as jest.Mock).mockResolvedValueOnce({
+        ok: true,
+        text: async () => '',
+      });
+
+      const result = await agentService.getAgentMetrics(mockAgentId, mockUserId, '24h');
+
+      expect(result?.totalRevenue).toBe(0);
+    });
+
+    it('should return 0 revenue when ledger returns no data', async () => {
+      (database.query as jest.Mock)
+        .mockResolvedValueOnce({ rows: [mockAgentRow] })
+        .mockResolvedValueOnce({ rows: [] });
+      (axios.get as jest.Mock).mockResolvedValueOnce({ data: {} });
+      (fetch as jest.Mock).mockResolvedValueOnce({
+        ok: true,
+        text: async () => '',
+      });
+
+      const result = await agentService.getAgentMetrics(mockAgentId, mockUserId, '24h');
+
+      expect(result?.totalRevenue).toBe(0);
+    });
+
+    it('should fetch resource usage from metrics endpoint', async () => {
+      (database.query as jest.Mock)
+        .mockResolvedValueOnce({ rows: [mockAgentRow] })
+        .mockResolvedValueOnce({ rows: [] });
+      (axios.get as jest.Mock).mockResolvedValueOnce({ data: { revenue: 0 } });
+      (fetch as jest.Mock).mockResolvedValueOnce({
+        ok: true,
+        text: async () => `
+container_cpu_usage_seconds_total{agent_id="agent-456"} 0.5
+container_memory_usage_bytes{agent_id="agent-456"} 536870912
+        `,
+      });
+
+      const result = await agentService.getAgentMetrics(mockAgentId, mockUserId, '24h');
+
+      expect(result?.resourceUsage?.avgMemoryMB).toBe(512);
+    });
+
+    it('should return default resource usage when metrics service unavailable', async () => {
+      (database.query as jest.Mock)
+        .mockResolvedValueOnce({ rows: [mockAgentRow] })
+        .mockResolvedValueOnce({ rows: [] });
+      (axios.get as jest.Mock).mockResolvedValueOnce({ data: { revenue: 0 } });
+      (fetch as jest.Mock).mockRejectedValueOnce(new Error('Metrics unavailable'));
+
+      const result = await agentService.getAgentMetrics(mockAgentId, mockUserId, '24h');
+
+      expect(result?.resourceUsage?.avgCpuPercent).toBe(0);
+      expect(result?.resourceUsage?.avgMemoryMB).toBe(0);
+      expect(result?.resourceUsage?.avgStorageMB).toBe(0);
+    });
+
+    it('should fallback to runner stats endpoint when prometheus unavailable', async () => {
+      (database.query as jest.Mock)
+        .mockResolvedValueOnce({ rows: [mockAgentRow] })
+        .mockResolvedValueOnce({ rows: [] });
+      (axios.get as jest.Mock).mockResolvedValueOnce({ data: { revenue: 0 } });
+      (fetch as jest.Mock)
+        .mockResolvedValueOnce({ ok: false })
+        .mockResolvedValueOnce({
+          ok: true,
+          json: async () => ({ avgCpuPercent: 60, avgMemoryMB: 1024, avgStorageMB: 200 }),
+        });
+
+      const result = await agentService.getAgentMetrics(mockAgentId, mockUserId, '24h');
+
+      expect(result?.resourceUsage?.avgCpuPercent).toBe(60);
+      expect(result?.resourceUsage?.avgMemoryMB).toBe(1024);
     });
   });
 

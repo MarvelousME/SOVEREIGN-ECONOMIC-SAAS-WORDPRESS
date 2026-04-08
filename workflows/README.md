@@ -15,7 +15,7 @@ This package implements 10 critical workflows for the UBI CMS platform:
 7. **Reputation Recalculation** - Daily reputation score updates
 8. **Governance Execution** - Time-locked proposal execution
 9. **Referral Conversion** - Multi-tier referral reward distribution
-10. **Data Anonymization** - Privacy-preserving data access (future)
+10. **Data Vault Anonymization** - GDPR-compliant data anonymization and erasure
 
 ## Project Structure
 
@@ -32,6 +32,7 @@ workflows/
 │   │   ├── reputation-recalc.workflow.ts
 │   │   ├── governance-execution.workflow.ts
 │   │   └── referral-conversion.workflow.ts
+│   │   └── data-vault-anonymization.workflow.ts
 │   ├── activities/          # Activity implementations
 │   │   ├── ubi.activities.ts
 │   │   ├── treasury.activities.ts
@@ -40,7 +41,8 @@ workflows/
 │   │   ├── agent.activities.ts
 │   │   ├── reputation.activities.ts
 │   │   ├── governance.activities.ts
-│   │   └── referral.activities.ts
+│   │   ├── referral.activities.ts
+│   │   └── dataVault.activities.ts
 │   ├── worker.ts           # Temporal worker
 │   ├── client.ts           # Temporal client
 │   ├── config.ts           # Configuration
@@ -191,7 +193,7 @@ await client.cancelWorkflow(handle.workflowId, 'User requested');
 ### 4. Agent Execution Workflow
 
 **Trigger**: Agent execution request  
-**Duration**: Variable (max 15 minutes)  
+**Duration**: Variable (max 15 minutes)
 
 **Steps**:
 1. Validate agent permissions (OPA)
@@ -204,6 +206,30 @@ await client.cancelWorkflow(handle.workflowId, 'User requested');
 8. Emit completion event
 
 **Features**: Timeout handling, automatic resource cleanup
+
+### 10. Data Vault Anonymization Workflow
+
+**Trigger**: GDPR data subject request or scheduled retention policy  
+**Duration**: ~30 seconds - 2 minutes
+
+**Steps**:
+1. Check user consent status
+2. Validate anonymization strategy
+3. Fetch user PII data
+4. Apply anonymization strategy to PII fields
+5. Log anonymization audit event
+6. Verify anonymization compliance
+7. Update data vault
+
+**Anonymization Strategies**:
+- `k-anonymity`: Generalizes quasi-identifiers (dates to month/year, ages to 5-year buckets)
+- `differential-privacy`: Adds calibrated noise to numeric values using epsilon parameter
+- `pseudonymization`: Replaces PII with consistent pseudonyms (reversible with key)
+- `full-anonymization`: Irreversibly redacts all PII fields
+
+**Error Handling**: Retry failed activities, log failures for auditor review
+
+**GDPR Compliance**: Supports right to erasure, data minimization, and consent withdrawal
 
 ## Monitoring
 

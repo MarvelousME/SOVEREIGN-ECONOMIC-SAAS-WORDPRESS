@@ -20,6 +20,7 @@ export const config = {
     reputationService: process.env.REPUTATION_SERVICE_URL || 'http://localhost:4006',
     governanceService: process.env.GOVERNANCE_SERVICE_URL || 'http://localhost:4007',
     agentRunner: process.env.AGENT_RUNNER_URL || 'http://localhost:4008',
+    dataVaultService: process.env.DATA_VAULT_SERVICE_URL || 'http://localhost:4009',
   },
   opa: {
     url: process.env.OPA_URL || 'http://localhost:8181',

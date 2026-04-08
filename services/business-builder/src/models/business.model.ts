@@ -92,6 +92,17 @@ export class BusinessModel {
     return result.rows.map((row) => this.mapRowToBusiness(row));
   }
 
+  async findByTenant(tenantId: string, limit = 50, offset = 0): Promise<Business[]> {
+    const query = `
+      SELECT * FROM businesses
+      WHERE tenant_id = $1
+      ORDER BY created_at DESC
+      LIMIT $2 OFFSET $3
+    `;
+    const result = await this.db.query(query, [tenantId, limit, offset]);
+    return result.rows.map((row) => this.mapRowToBusiness(row));
+  }
+
   async findBySubdomain(tenantId: string, subdomain: string): Promise<Business | null> {
     const query = `
       SELECT * FROM businesses

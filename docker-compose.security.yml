@@ -12,373 +12,90 @@
 
 version: "3.9"
 
-networks:
-  sovereign-net:
-    external: true           # Your existing production network
-  security-net:
-    driver: bridge
-    ipam:
-      config:
-        - subnet: 172.28.0.0/24
-  monitoring-net:
-    driver: bridge
-
-volumes:
-  glastopf-data:
-  cowrie-data:
-  dionaea-data:
-  elasticsearch-data:
-  wazuh-data:
-  suricata-logs:
-  grafana-data:
-  loki-data:
-
-# =============================================================================
-# HONEYPOTS
-# =============================================================================
-
 services:
-
-  # ---------------------------------------------------------------------------
-  # Glastopf — Web application honeypot
-  # Simulates SQLi, RFI, XSS vulnerabilities. Catches scanners and bots.
-  # Exposed to internet via nginx trap-router (see below).
-  # ---------------------------------------------------------------------------
-  glastopf:
-    image: mushorg/glastopf:latest
+  honeypot-web:
+    image: nginx:alpine
     container_name: sovereign-honeypot-web
     restart: unless-stopped
+    ports:
+      - "8088:80"
     networks:
-      security-net:
-        ipv4_address: 172.28.0.10
+      - security-net
     volumes:
-      - glastopf-data:/opt/glastopf/db
-      - ./security/glastopf/glastopf.cfg:/opt/glastopf/glastopf.cfg:ro
-    logging:
-      driver: "json-file"
-      options:
-        max-size: "50m"
-        max-file: "5"
+      - ./trap.conf:/etc/nginx/nginx.conf:ro
     labels:
       - "security.role=honeypot"
       - "security.type=web"
 
-  # ---------------------------------------------------------------------------
-  # Cowrie — SSH/Telnet honeypot
-  # Logs brute-force attempts, credential stuffing, and attacker shell commands.
-  # ---------------------------------------------------------------------------
-  cowrie:
-    image: cowrie/cowrie:latest
+  honeypot-ssh:
+    image: alpine:3.20
     container_name: sovereign-honeypot-ssh
     restart: unless-stopped
     ports:
-      - "2222:2222"          # Decoy SSH port. Map port 22 here if you move real SSH elsewhere.
-      - "2323:2323"          # Decoy Telnet
+      - "2222:2222"
+      - "2323:2323"
     networks:
-      security-net:
-        ipv4_address: 172.28.0.11
-    volumes:
-      - cowrie-data:/home/cowrie/cowrie-git/var
-      - ./security/cowrie/cowrie.cfg:/home/cowrie/cowrie-git/etc/cowrie.cfg:ro
-    environment:
-      - COWRIE_TELNET_ENABLED=yes
-    logging:
-      driver: "json-file"
-      options:
-        max-size: "50m"
-        max-file: "5"
+      - security-net
+    command: >
+      sh -c "apk add --no-cache netcat-openbsd &&
+      while true; do
+        printf 'SSH-2.0-OpenSSH_8.2p1 Ubuntu-4ubuntu0.5\r\n' | nc -l -p 2222 -q 1;
+      done"
     labels:
       - "security.role=honeypot"
       - "security.type=ssh"
 
-  # ---------------------------------------------------------------------------
-  # Dionaea — Malware-capturing honeypot
-  # Captures exploit payloads on SMB, HTTP, FTP, SIP, MSSQL.
-  # ---------------------------------------------------------------------------
-  dionaea:
-    image: dinotools/dionaea:latest
-    container_name: sovereign-honeypot-malware
-    restart: unless-stopped
-    ports:
-      - "21:21"              # FTP decoy
-      - "42:42"              # Nameserver decoy
-      - "69:69/udp"          # TFTP decoy
-      - "1433:1433"          # MSSQL decoy
-      - "1723:1723"          # PPTP decoy
-      - "3306:3306"          # MySQL decoy
-    networks:
-      security-net:
-        ipv4_address: 172.28.0.12
-    volumes:
-      - dionaea-data:/opt/dionaea/var
-      - ./security/dionaea/dionaea.cfg:/opt/dionaea/etc/dionaea/dionaea.cfg:ro
-    logging:
-      driver: "json-file"
-      options:
-        max-size: "100m"
-        max-file: "5"
-    labels:
-      - "security.role=honeypot"
-      - "security.type=malware"
-
-  # ---------------------------------------------------------------------------
-  # Nginx Trap Router
-  # Routes suspicious traffic from production to honeypots.
-  # Decoy endpoints: /admin, /wp-admin, /phpmyadmin, /login, /.env, /config
-  # ---------------------------------------------------------------------------
   trap-router:
     image: nginx:alpine
     container_name: sovereign-trap-router
     restart: unless-stopped
     ports:
-      - "8888:80"            # Nginx listens here; Cloudflare routes suspicious paths here
+      - "8888:80"
     networks:
       - security-net
-      - sovereign-net        # Needs sovereign-net only to receive from your reverse proxy
+      - sovereign-net
     volumes:
-      - ./security/nginx/trap.conf:/etc/nginx/nginx.conf:ro
-      - ./security/nginx/blocked-ips.conf:/etc/nginx/blocked-ips.conf:ro
+      - ./trap.conf:/etc/nginx/nginx.conf:ro
+      - ./cloudflare-block.conf:/etc/nginx/blocked-ips.conf:ro
     depends_on:
-      - glastopf
+      - honeypot-web
     labels:
       - "security.role=trap-router"
 
-  # =============================================================================
-  # IDS/IPS — Suricata
-  # Deep packet inspection. Runs in AF_PACKET mode on host network interface.
-  # Alerts feed into Elasticsearch via Filebeat.
-  # =============================================================================
   suricata:
     image: jasonish/suricata:latest
     container_name: sovereign-ids
     restart: unless-stopped
-    network_mode: host         # Must use host network for packet capture
+    command: suricata -i eth0 -v
+    networks:
+      - security-net
     cap_add:
       - NET_ADMIN
       - NET_RAW
-      - SYS_NICE
     volumes:
+      - ./01-suricata.conf:/etc/suricata/suricata.yaml:ro
       - suricata-logs:/var/log/suricata
-      - ./security/suricata/suricata.yaml:/etc/suricata/suricata.yaml:ro
-      - ./security/suricata/rules:/etc/suricata/rules:ro
-    environment:
-      - SURICATA_OPTIONS=-i eth0 --af-packet
-    command: suricata -c /etc/suricata/suricata.yaml --af-packet -D -v
     labels:
       - "security.role=ids"
 
-  # =============================================================================
-  # WAZUH — Host-based IDS, file integrity monitoring, log correlation
-  # Manager + agent architecture. Agent runs on production hosts.
-  # =============================================================================
-  wazuh-manager:
-    image: wazuh/wazuh-manager:4.7.3
-    container_name: sovereign-wazuh-manager
-    restart: unless-stopped
-    ports:
-      - "1514:1514/udp"      # Agent communications
-      - "1515:1515"          # Agent enrollment
-      - "514:514/udp"        # Syslog
-      - "55000:55000"        # Wazuh API
-    networks:
-      - security-net
-      - monitoring-net
-    volumes:
-      - wazuh-data:/var/ossec/data
-      - ./security/wazuh/ossec.conf:/var/ossec/etc/ossec.conf:ro
-      - ./security/wazuh/rules:/var/ossec/etc/rules:ro
-    environment:
-      - WAZUH_MANAGER_IP=wazuh-manager
-      - API_USERNAME=wazuh-admin
-      - API_PASSWORD=${WAZUH_API_PASSWORD}
-    labels:
-      - "security.role=hids"
-
-  # =============================================================================
-  # SIEM — Elasticsearch + Logstash + Kibana (ELK)
-  # Central log aggregation for all honeypot, IDS, and application logs.
-  # =============================================================================
-  elasticsearch:
-    image: docker.elastic.co/elasticsearch/elasticsearch:8.13.0
-    container_name: sovereign-elasticsearch
-    restart: unless-stopped
-    networks:
-      - security-net
-      - monitoring-net
-    volumes:
-      - elasticsearch-data:/usr/share/elasticsearch/data
-    environment:
-      - discovery.type=single-node
-      - xpack.security.enabled=true
-      - ELASTIC_PASSWORD=${ELASTIC_PASSWORD}
-      - ES_JAVA_OPTS=-Xms1g -Xmx1g
-      - xpack.security.enrollment.enabled=true
-    ulimits:
-      memlock:
-        soft: -1
-        hard: -1
-    labels:
-      - "security.role=siem"
-
-  logstash:
-    image: docker.elastic.co/logstash/logstash:8.13.0
-    container_name: sovereign-logstash
-    restart: unless-stopped
-    networks:
-      - security-net
-    volumes:
-      - ./security/logstash/pipeline:/usr/share/logstash/pipeline:ro
-      - ./security/logstash/logstash.yml:/usr/share/logstash/config/logstash.yml:ro
-      - suricata-logs:/var/log/suricata:ro
-    environment:
-      - ELASTIC_PASSWORD=${ELASTIC_PASSWORD}
-    depends_on:
-      - elasticsearch
-    labels:
-      - "security.role=siem"
-
-  kibana:
-    image: docker.elastic.co/kibana/kibana:8.13.0
-    container_name: sovereign-kibana
-    restart: unless-stopped
-    ports:
-      - "5601:5601"          # Bind to 127.0.0.1 in prod, proxy through nginx with auth
-    networks:
-      - security-net
-      - monitoring-net
-    environment:
-      - ELASTICSEARCH_HOSTS=http://elasticsearch:9200
-      - ELASTICSEARCH_USERNAME=kibana_system
-      - ELASTICSEARCH_PASSWORD=${KIBANA_PASSWORD}
-    depends_on:
-      - elasticsearch
-    labels:
-      - "security.role=siem"
-
-  # ---------------------------------------------------------------------------
-  # Filebeat — Ships Suricata + honeypot logs to Elasticsearch
-  # ---------------------------------------------------------------------------
-  filebeat:
-    image: docker.elastic.co/beats/filebeat:8.13.0
-    container_name: sovereign-filebeat
-    restart: unless-stopped
-    user: root
-    networks:
-      - security-net
-    volumes:
-      - ./security/filebeat/filebeat.yml:/usr/share/filebeat/filebeat.yml:ro
-      - suricata-logs:/var/log/suricata:ro
-      - cowrie-data:/var/log/cowrie:ro
-      - glastopf-data:/var/log/glastopf:ro
-      - /var/lib/docker/containers:/var/lib/docker/containers:ro
-      - /var/run/docker.sock:/var/run/docker.sock:ro
-    environment:
-      - ELASTIC_PASSWORD=${ELASTIC_PASSWORD}
-    depends_on:
-      - elasticsearch
-    labels:
-      - "security.role=log-shipper"
-
-  # =============================================================================
-  # Grafana + Loki — Real-time security dashboards
-  # Loki ingests logs. Grafana visualises attack patterns and alert timelines.
-  # =============================================================================
-  loki:
-    image: grafana/loki:2.9.7
-    container_name: sovereign-loki
-    restart: unless-stopped
-    networks:
-      - monitoring-net
-    volumes:
-      - loki-data:/loki
-      - ./security/loki/loki-config.yaml:/etc/loki/local-config.yaml:ro
-    command: -config.file=/etc/loki/local-config.yaml
-    labels:
-      - "security.role=log-aggregator"
-
-  promtail:
-    image: grafana/promtail:2.9.7
-    container_name: sovereign-promtail
-    restart: unless-stopped
-    networks:
-      - monitoring-net
-      - security-net
-    volumes:
-      - ./security/promtail/promtail-config.yaml:/etc/promtail/config.yaml:ro
-      - suricata-logs:/var/log/suricata:ro
-      - cowrie-data:/var/log/cowrie:ro
-      - /var/log:/var/log/host:ro
-      - /var/run/docker.sock:/var/run/docker.sock
-    command: -config.file=/etc/promtail/config.yaml
-    labels:
-      - "security.role=log-shipper"
-
-  grafana:
-    image: grafana/grafana:10.4.2
-    container_name: sovereign-grafana
-    restart: unless-stopped
-    ports:
-      - "3001:3000"          # Avoid port 3000 conflict with frontend dev server
-    networks:
-      - monitoring-net
-    volumes:
-      - grafana-data:/var/lib/grafana
-      - ./security/grafana/provisioning:/etc/grafana/provisioning:ro
-      - ./security/grafana/dashboards:/var/lib/grafana/dashboards:ro
-    environment:
-      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_ADMIN_PASSWORD}
-      - GF_USERS_ALLOW_SIGN_UP=false
-      - GF_SERVER_ROOT_URL=https://security.yourdomain.com
-      - GF_AUTH_GENERIC_OAUTH_ENABLED=true     # Wire to Keycloak
-      - GF_AUTH_GENERIC_OAUTH_CLIENT_ID=grafana
-      - GF_AUTH_GENERIC_OAUTH_CLIENT_SECRET=${GRAFANA_OAUTH_SECRET}
-      - GF_AUTH_GENERIC_OAUTH_AUTH_URL=${KEYCLOAK_REALM_URL}/protocol/openid-connect/auth
-      - GF_AUTH_GENERIC_OAUTH_TOKEN_URL=${KEYCLOAK_REALM_URL}/protocol/openid-connect/token
-    depends_on:
-      - loki
-    labels:
-      - "security.role=dashboard"
-
-  # =============================================================================
-  # Fail2Ban — IP blocking based on honeypot + IDS events
-  # Reads Cowrie, Glastopf, and Suricata logs. Blocks via iptables.
-  # Optionally pushes ban list to Cloudflare via API.
-  # =============================================================================
-  fail2ban:
-    image: crazymax/fail2ban:latest
-    container_name: sovereign-fail2ban
-    restart: unless-stopped
-    network_mode: host
-    cap_add:
-      - NET_ADMIN
-      - NET_RAW
-    volumes:
-      - ./security/fail2ban/jail.local:/data/jail.local:ro
-      - ./security/fail2ban/filter.d:/data/filter.d:ro
-      - ./security/fail2ban/action.d:/data/action.d:ro
-      - cowrie-data:/var/log/cowrie:ro
-      - suricata-logs:/var/log/suricata:ro
-      - /var/log:/var/log/host:ro
-    environment:
-      - TZ=Africa/Johannesburg
-      - CF_API_TOKEN=${CLOUDFLARE_API_TOKEN}
-      - CF_ZONE_ID=${CLOUDFLARE_ZONE_ID}
-    labels:
-      - "security.role=ip-blocker"
-
-  # =============================================================================
-  # Cloudflare Tunnel — Zero-trust access to dashboards
-  # Grafana and Kibana exposed via Cloudflare Tunnel, not direct ports.
-  # =============================================================================
   cloudflared:
     image: cloudflare/cloudflared:latest
     container_name: sovereign-cloudflared
     restart: unless-stopped
     networks:
-      - monitoring-net
+      - security-net
       - sovereign-net
-    command: tunnel --no-autoupdate run --token ${CLOUDFLARE_TUNNEL_TOKEN}
-    environment:
-      - TUNNEL_TOKEN=${CLOUDFLARE_TUNNEL_TOKEN}
+    command: tunnel --no-autoupdate --url http://trap-router:80
+    depends_on:
+      - trap-router
     labels:
       - "security.role=tunnel"
+
+networks:
+  sovereign-net:
+    external: true
+  security-net:
+    driver: bridge
+
+volumes:
+  suricata-logs:

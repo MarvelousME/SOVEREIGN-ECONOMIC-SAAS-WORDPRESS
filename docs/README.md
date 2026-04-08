@@ -48,21 +48,22 @@ UBI CMS is a full-stack platform that enables **Universal Basic Income (UBI) dis
 ```bash
 # 1. Clone the repository
 git clone <repo-url>
-cd UBI-CMS
+cd <repository-root>
 
-# 2. Start the database and API
-cp .env.example .env.local     # edit DB_PASSWORD, JWT_SECRET
-docker compose -f docker-compose.local.yml up -d
+# 2. Start Postgres, Redis, and API (credentials are set in docker-compose.local.yml)
+docker compose -f docker-compose.local.yml up --build -d
 
-# 3. Start the portal UI
+# 3. Start the portal UI (separate process; uses port 3001)
 cd frontend/portal-ui
 npm install
-cp .env.example .env.local
+cp .env.example .env.local    # set NEXT_PUBLIC_API_URL if needed (default targets localhost:3000)
 npm run dev
 ```
 
 Portal is available at `http://localhost:3001`.  
-API runs at `http://localhost:3000`.
+API runs at `http://localhost:3000` (including `GET /health` and `GET /api/v1/...`).
+
+> To run the **API on the host** instead of the container, copy **`.env.production.example`** to **`.env.local`** in `api/`, set `DB_*` / `REDIS_*` to match `docker-compose.local.yml` (see **`docker-compose.local.yml` (minimal stack)** in [Environment variables](./environment-variables.md)), then `cd api && npm install && npm run dev`.
 
 > See [Developer Guide](./developer-guide.md) for full setup instructions.
 
@@ -115,8 +116,16 @@ See [Architecture Guide](./architecture.md) for detailed diagrams and data flow.
 | [Deployment Setup](./deployment/setup.md) | DevOps | Production deployment steps |
 | [Runbook](./deployment/runbook.md) | SRE / On-Call | Incident response procedures |
 | [Troubleshooting](./deployment/troubleshooting.md) | All | Common issues and solutions |
+| [Quick demo guide](./DEMO-GUIDE.md) | Sales / onboarding | Minimal stack + scripted portal walkthrough |
+| [Main treasury env (workspaces)](./integration/main-treasury.env.sample) | DevOps / platform | `MAIN_TREASURY_*` vars so every workspace links to one platform vault |
+| [TRUNK `dev-environment/ubi` bridge](./integration/trunk-dev-environment-ubi.md) | Integrators / platform | How this repo relates to a large external UBI tree; ports, NATS, Temporal alignment |
 | [Partner Referral + SA³-EOS wiring](./integration/partner-referral-sa3-eos-wiring.md) | Architects / backend | PR-OS schema, tenant bridge, SA³-EOS mapping to existing services |
 | [Sovereign-Engine (NovasPlace)](./integration/sovereign-engine-integration.md) | Architects / ML-ops | Optional Python agent runtime: substrate ledger/blackboard, MCP-style tools, safe boundaries vs Ledger Service |
+| [IAM bigint ↔ WordPress UUID tenant mapping](./integration/tenant-id-mapping.md) | Platform / WordPress | Links `tenants.id`, `tenant_workspaces`, and `sovereign_tenant_id` |
+| [Payouts flow & implementation status](./integration/payouts-flow.md) | Backend / treasury | Intended NATS/ledger path vs what exists in the repo today |
+| [Agent-chain strict compliance + campaign bridge](./integration/agent-chain-compliance-campaign-bridge.md) | Architects / backend / compliance | Strict gate flow for agent-chain and milestone bridge into rewards + ledger |
+| [Compliance domain DoD](./compliance-domain-dod.md) | Engineering / QA / compliance | Definition of Done checklist for agent-chain compliance and rewards/ledger bridge work |
+| [Generated architecture outputs](../generated/architecture/README.md) | DevOps / platform | Portal **Architecture** & **Workflows** pages write wiring JSON/markdown/scripts here |
 | [Event taxonomy crosswalk](./architecture/event-taxonomy-crosswalk.md) | Architects / integrators | SAAOS-style domain events mapped to NATS / CloudEvents in this repo |
 | [Shared contracts](../shared/contracts/README.md) | Backend / agents | JSON Schema for bounded agent run contracts |
 
@@ -147,7 +156,7 @@ See [Architecture Guide](./architecture.md) for detailed diagrams and data flow.
 
 | Layer | Technology | Version |
 |-------|-----------|---------|
-| Runtime | Node.js | 18+ |
+| Runtime | Node.js | 20 (CI / Docker images); `engines` in `api/package.json` allows ≥18 |
 | Framework | Express.js | 4.x |
 | Auth | JWT (jsonwebtoken) | 9.x |
 | Password Hashing | bcrypt | 5.x |
@@ -161,7 +170,7 @@ See [Architecture Guide](./architecture.md) for detailed diagrams and data flow.
 
 | Service | Technology | Purpose |
 |---------|-----------|---------|
-| Database | PostgreSQL 15+ | Primary data store |
+| Database | PostgreSQL 16 (local/dev Compose); 15+ compatible | Primary data store |
 | Cache/Sessions | Redis 7+ | Session tokens, rate limit counters |
 | Reverse Proxy | Nginx | TLS, load balancing, static assets |
 | Containerization | Docker / Docker Compose | Local and production deployment |
@@ -244,12 +253,12 @@ Password: Demo@Platform1
 
 | Component | Status | Notes |
 |-----------|--------|-------|
-| Portal UI | ✅ Complete | All 15 screens developed, wired to API |
+| Portal UI | ✅ Complete | Next.js app with many dashboard routes (UBI, tasks, treasury, affiliate, CRM, compliance, pages, agents, analytics, etc.) |
 | API (Core) | ✅ Complete | Auth, Tasks, Rewards, Treasury, Agents, UBI |
 | Database Migrations | ✅ Complete | All schema files present |
 | Docker / Nginx | ✅ Complete | Production-ready compose + Nginx config |
 | CI/CD | ✅ Complete | GitHub Actions pipeline |
-| Unit Tests | ✅ Complete | 8 test suites covering all controllers |
+| Unit Tests | ✅ Complete | Jest suites under `api/src/__tests__/` (auth, tasks, agents, UBI, treasury, rewards, middleware, health, plus migration utilities) |
 | Demo Mode | ✅ Complete | Client-side fallback with mock datasets |
 | Observability | ⚠️ Partial | Stack deployed; app instrumentation pending |
 | Admin UI | 🔲 Planned | Separate Next.js app (`admin-ui`) |

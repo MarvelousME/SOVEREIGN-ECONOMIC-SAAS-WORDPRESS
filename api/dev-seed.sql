@@ -1,6 +1,7 @@
 -- UBI-CMS Development Seed Data
--- Run AFTER dev-schema.sql
+-- Run AFTER dev-schema.sql; dev-patch.sql runs next (docker-compose.dev / local / swarm).
 -- Creates: admin user, sample users, tasks, strategies, agents
+-- Demo user password: Demo@Platform1 (matches frontend portal-ui src/lib/demo.ts)
 
 -- ===================================
 -- Admin user (password: Admin@123456)
@@ -10,7 +11,7 @@ INSERT INTO users (username, email, password_hash, roles, status) VALUES
 ('admin', 'admin@ubi-cms.dev', '$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/LeAEZ7CfMFmEBUwS2', ARRAY['admin', 'subscriber'], 'active'),
 ('alice', 'alice@ubi-cms.dev', '$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/LeAEZ7CfMFmEBUwS2', ARRAY['subscriber'], 'active'),
 ('bob', 'bob@ubi-cms.dev', '$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/LeAEZ7CfMFmEBUwS2', ARRAY['subscriber'], 'active'),
-('demo', 'demo@ubi-cms.dev', '$2b$12$and6nBW2BCbAbg6mSvcxwuKpBmwEur6Txqm9r./GAGzJEq5e7kAou', ARRAY['subscriber'], 'active')
+('demo', 'demo@ubi-cms.dev', '$2b$12$xB3eGveGduf3IuIgZdP6pupTWF3KJbzMA3VzgJ5JeYsddNXEE4rhm', ARRAY['subscriber'], 'active')
 ON CONFLICT (username) DO NOTHING;
 
 -- ===================================
@@ -140,5 +141,5 @@ BEGIN
         (SELECT COUNT(*) FROM tasks),
         (SELECT COUNT(*) FROM treasury_strategies),
         (SELECT COUNT(*) FROM agents);
-    RAISE NOTICE 'Login: admin / Admin@123456 (or alice, bob with same password)';
+    RAISE NOTICE 'Login: admin / Admin@123456 | demo / Demo@Platform1 | alice, bob / Admin@123456';
 END $$;

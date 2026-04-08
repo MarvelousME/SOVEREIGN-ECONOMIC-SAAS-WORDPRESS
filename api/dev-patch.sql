@@ -98,3 +98,117 @@ FROM users u
 WHERE u.username = 'moduser'
   AND NOT EXISTS (SELECT 1 FROM notifications n WHERE n.user_id = u.id AND n.title = 'Moderation queue')
 LIMIT 1;
+
+-- =============================================================================
+-- Demo mode: align DB with portal demo persona + link previously empty tables
+-- Idempotent: safe to re-run (guards / ON CONFLICT).
+-- Password must match frontend/portal-ui/src/lib/demo.ts (DEMO_PASSWORD).
+-- =============================================================================
+
+UPDATE users
+SET password_hash = '$2b$12$xB3eGveGduf3IuIgZdP6pupTWF3KJbzMA3VzgJ5JeYsddNXEE4rhm'
+WHERE username = 'demo';
+
+INSERT INTO treasury_accounts (user_id, balance, currency)
+SELECT id, 5820.50000000, 'UBI'
+FROM users
+WHERE username = 'demo'
+ON CONFLICT (user_id) DO NOTHING;
+
+INSERT INTO treasury_transactions (user_id, type, amount, currency, balance_after, status, metadata)
+SELECT u.id, v.typ, v.amt, 'UBI', v.bal_after, 'completed', v.meta::jsonb
+FROM users u
+CROSS JOIN (VALUES
+  ('deposit', 3000::numeric, 3000::numeric, '{"seed":"demo","note":"Initial deposit"}'),
+  ('ubi_credit', 500::numeric, 3500::numeric, '{"seed":"demo"}'),
+  ('task_reward', 50::numeric, 3550::numeric, '{"seed":"demo"}'),
+  ('deposit', 2270.5::numeric, 5820.5::numeric, '{"seed":"demo","note":"Top-up"}')
+) AS v(typ, amt, bal_after, meta)
+WHERE u.username = 'demo'
+  AND NOT EXISTS (SELECT 1 FROM treasury_transactions t WHERE t.user_id = u.id);
+
+INSERT INTO rewards (user_id, amount, currency, type, source_type, source_id, status, processed_at)
+SELECT u.id, r.amt, 'UBI', r.typ, r.src, r.sid, 'completed', r.ts
+FROM users u
+CROSS JOIN (VALUES
+  (100::numeric, 'ubi_distribution', 'ubi_engine', NULL::bigint, NOW() - INTERVAL '7 days'),
+  (100::numeric, 'ubi_distribution', 'ubi_engine', NULL::bigint, NOW() - INTERVAL '6 days'),
+  (100::numeric, 'ubi_distribution', 'ubi_engine', NULL::bigint, NOW() - INTERVAL '5 days'),
+  (75::numeric, 'task_reward', 'task', NULL::bigint, NOW() - INTERVAL '3 days'),
+  (50::numeric, 'bonus', 'platform', NULL::bigint, NOW() - INTERVAL '1 day')
+) AS r(amt, typ, src, sid, ts)
+WHERE u.username = 'demo'
+  AND NOT EXISTS (SELECT 1 FROM rewards x WHERE x.user_id = u.id);
+
+INSERT INTO task_assignments (task_id, user_id, status, proof_data)
+SELECT t.id, u.id, 'assigned', '{}'::jsonb
+FROM tasks t
+JOIN users u ON u.username = 'demo'
+WHERE t.title = 'Test Mobile App on Android'
+  AND NOT EXISTS (
+    SELECT 1 FROM task_assignments ta WHERE ta.task_id = t.id AND ta.user_id = u.id
+  );
+
+INSERT INTO task_assignments (task_id, user_id, status, proof_data, submitted_at, verified_by, verified_at, reward_distributed)
+SELECT t.id, du.id, 'approved',
+  '{"link":"https://example.com/demo-blog-proof","word_count":520}'::jsonb,
+  NOW() - INTERVAL '3 days',
+  adm.id,
+  NOW() - INTERVAL '2 days',
+  true
+FROM tasks t
+JOIN users du ON du.username = 'demo'
+JOIN users adm ON adm.username = 'admin'
+WHERE t.title = 'Write a Blog Post'
+  AND NOT EXISTS (
+    SELECT 1 FROM task_assignments ta WHERE ta.task_id = t.id AND ta.user_id = du.id
+  );
+
+INSERT INTO task_assignments (task_id, user_id, status, proof_data, submitted_at)
+SELECT t.id, u.id, 'submitted',
+  '{"translated_document":"https://example.com/demo-es.pdf","language":"es"}'::jsonb,
+  NOW() - INTERVAL '1 day'
+FROM tasks t
+JOIN users u ON u.username = 'alice'
+WHERE t.title = 'Translate Platform Documentation'
+  AND NOT EXISTS (
+    SELECT 1 FROM task_assignments ta WHERE ta.task_id = t.id AND ta.user_id = u.id
+  );
+
+UPDATE tasks t
+SET current_participants = (
+  SELECT COUNT(*)::int FROM task_assignments ta WHERE ta.task_id = t.id
+)
+WHERE EXISTS (SELECT 1 FROM task_assignments ta WHERE ta.task_id = t.id);
+
+INSERT INTO agent_executions (agent_id, user_id, input_data, output_data, status, duration_ms, cost, completed_at)
+SELECT a.id, u.id,
+  '{"question":"Am I eligible for UBI?"}'::jsonb,
+  '{"answer":"Yes — complete your profile and claim from the dashboard."}'::jsonb,
+  'completed', 95, 0, NOW() - INTERVAL '2 hours'
+FROM agents a
+JOIN users u ON u.username = 'demo'
+WHERE a.name = 'UBI Advisor Bot'
+  AND NOT EXISTS (
+    SELECT 1 FROM agent_executions e WHERE e.agent_id = a.id AND e.user_id = u.id
+  );
+
+INSERT INTO agent_executions (agent_id, user_id, input_data, output_data, status, duration_ms, cost, completed_at)
+SELECT a.id, u.id,
+  '{"skills":["react","typescript"]}'::jsonb,
+  '{"matches":[{"task_id":1,"score":0.92}]}'::jsonb,
+  'completed', 210, 0.50, NOW() - INTERVAL '1 day'
+FROM agents a
+JOIN users u ON u.username = 'demo'
+WHERE a.name = 'Task Matcher'
+  AND NOT EXISTS (
+    SELECT 1 FROM agent_executions e
+    WHERE e.agent_id = a.id AND e.user_id = u.id AND e.cost = 0.50
+  );
+
+INSERT INTO user_app_installs (user_id, app_id, status, activated_at)
+SELECT u.id, m.id, 'active', NOW() - INTERVAL '5 days'
+FROM users u
+JOIN marketplace_apps m ON m.slug IN ('ubi-insights', 'task-boost')
+WHERE u.username = 'demo'
+ON CONFLICT (user_id, app_id) DO NOTHING;

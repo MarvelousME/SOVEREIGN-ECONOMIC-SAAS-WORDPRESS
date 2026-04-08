@@ -9,6 +9,11 @@
 5. [Performance Issues](#performance-issues)
 6. [Security Issues](#security-issues)
 
+## Database name in copy-paste commands
+
+Examples below often use **`-d ubi_cms`**, matching **`docker-compose.dev.yml`** and many production-style configs.  
+If you run the **minimal local** stack (**`docker-compose.local.yml`**), use **`-d ubi_dev`** instead (and your Postgres container may be named `ubi-postgres-local`).
+
 ## Deployment Issues
 
 ### Build Failures
@@ -34,7 +39,7 @@ docker build --no-cache -t test ./api
 
 3. Verify base image availability:
 ```bash
-docker pull node:18-alpine
+docker pull node:20-alpine
 ```
 
 4. Check disk space:

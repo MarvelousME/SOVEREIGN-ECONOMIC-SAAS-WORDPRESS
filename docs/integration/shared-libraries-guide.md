@@ -47,7 +47,7 @@ NODE_ENV=development
 # Database
 DB_HOST=localhost
 DB_PORT=5432
-DB_NAME=ubi_cms
+DB_NAME=ubi_cms   # docker-compose.dev.yml; use ubi_dev for docker-compose.local.yml
 DB_USER=postgres
 DB_PASSWORD=postgres
 DB_POOL_MIN=2

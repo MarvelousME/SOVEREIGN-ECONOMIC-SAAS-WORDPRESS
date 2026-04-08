@@ -18,6 +18,7 @@ import {
   CreateTemplateRequest,
   PageListQuery,
   PageVersionListQuery,
+  PublishStatus,
 } from '../types';
 
 export class LandingPageModel {
@@ -119,6 +120,11 @@ export class LandingPageModel {
       whereClause += ` AND (name ILIKE $${paramCount++} OR description ILIKE $${paramCount++})`;
       values.push(`%${query.search}%`);
       values.push(`%${query.search}%`);
+    }
+
+    if (query.scope === 'own' && query.userId) {
+      whereClause += ` AND user_id = $${paramCount++}`;
+      values.push(query.userId);
     }
 
     const countQuery = `SELECT COUNT(*) as total FROM landing_pages ${whereClause}`;
@@ -413,15 +419,17 @@ export class PageTemplateModel {
 
     const query = `
       INSERT INTO page_templates (
-        id, name, description, category, thumbnail, blocks, default_metadata,
+        id, tenant_id, created_by, name, description, category, thumbnail, blocks, default_metadata,
         variables, is_public, is_a_b_testable, created_at, updated_at
       )
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
       RETURNING *
     `;
 
     const result = await this.db.query(query, [
       id,
+      data.tenantId || null,
+      data.createdBy || null,
       data.name,
       data.description,
       data.category,
@@ -430,7 +438,7 @@ export class PageTemplateModel {
       JSON.stringify(data.defaultMetadata),
       JSON.stringify(data.variables || []),
       data.isPublic || false,
-      data.isA/BTestable !== false,
+      data.isAbTestable !== false,
       now,
       now,
     ]);
@@ -443,31 +451,70 @@ export class PageTemplateModel {
     return result.rows.length > 0 ? this.mapRowToTemplate(result.rows[0]) : null;
   }
 
-  async findAll(category?: TemplateCategory, includePrivate = false): Promise<PageTemplate[]> {
+  async findAll(options?: {
+    tenantId?: string;
+    userId?: string;
+    category?: TemplateCategory;
+    includePrivate?: boolean;
+    scope?: 'own' | 'workspace';
+    limit?: number;
+    offset?: number;
+  }): Promise<{ data: PageTemplate[]; total: number }> {
+    const category = options?.category;
+    const includePrivate = options?.includePrivate || false;
+    const tenantId = options?.tenantId;
+    const userId = options?.userId;
+    const scope = options?.scope || 'workspace';
+    const limit = options?.limit ?? 20;
+    const offset = options?.offset ?? 0;
+
     let query = 'SELECT * FROM page_templates';
     const values: unknown[] = [];
+    const conditions: string[] = [];
+    let paramCount = 1;
 
-    if (category || !includePrivate) {
-      const conditions: string[] = [];
-      let paramCount = 1;
-
-      if (!includePrivate) {
-        conditions.push(`is_public = $${paramCount++}`);
-        values.push(true);
+    if (tenantId) {
+      if (scope === 'own' && userId) {
+        conditions.push(`tenant_id = $${paramCount++}`);
+        values.push(tenantId);
+        conditions.push(`created_by = $${paramCount++}`);
+        values.push(userId);
+      } else {
+        conditions.push(`(tenant_id = $${paramCount++} OR (tenant_id IS NULL AND is_public = true))`);
+        values.push(tenantId);
       }
+    } else if (!includePrivate) {
+      conditions.push(`is_public = $${paramCount++}`);
+      values.push(true);
+    }
 
-      if (category) {
-        conditions.push(`category = $${paramCount++}`);
-        values.push(category);
-      }
+    if (!includePrivate) {
+      conditions.push(`is_public = $${paramCount++}`);
+      values.push(true);
+    }
 
+    if (category) {
+      conditions.push(`category = $${paramCount++}`);
+      values.push(category);
+    }
+
+    if (conditions.length > 0) {
       query += ` WHERE ${conditions.join(' AND ')}`;
     }
 
+    const countQuery = `SELECT COUNT(*)::int AS total FROM page_templates${conditions.length > 0 ? ` WHERE ${conditions.join(' AND ')}` : ''}`;
+    const countResult = await this.db.query(countQuery, values);
+    const total = Number((countResult.rows[0] as Record<string, unknown>)?.total || 0);
+
     query += ' ORDER BY created_at DESC';
+    query += ` LIMIT $${paramCount++} OFFSET $${paramCount++}`;
+    values.push(limit, offset);
 
     const result = await this.db.query(query, values);
-    return result.rows.map((row) => this.mapRowToTemplate(row));
+    return {
+      data: result.rows.map((row) => this.mapRowToTemplate(row)),
+      total,
+    };
   }
 
   private mapRowToTemplate(row: Record<string, unknown>): PageTemplate {
@@ -476,6 +523,8 @@ export class PageTemplateModel {
 
     return {
       id: row.id as string,
+      tenantId: (row.tenant_id as string | null) || undefined,
+      createdBy: (row.created_by as string | null) || undefined,
       name: row.name as string,
       description: row.description as string,
       category: row.category as TemplateCategory,
@@ -484,7 +533,7 @@ export class PageTemplateModel {
       defaultMetadata: parseJson<PageMetadata>(row.default_metadata),
       variables: parseJson(row.variables || []),
       isPublic: row.is_public as boolean,
-      isA/BTestable: row.is_a_b_testable as boolean,
+      isAbTestable: row.is_a_b_testable as boolean,
       createdAt: new Date(row.created_at as string),
       updatedAt: new Date(row.updated_at as string),
     };
@@ -681,7 +730,7 @@ export class PublishTargetModel {
       cdnDistributionId: row.cdn_distribution_id as string | undefined,
       cdnUrl: row.cdn_url as string | undefined,
       embedCode: row.embed_code as string | undefined,
-      status: row.status as 'draft' | 'published' | 'unpublished',
+      status: row.status as PublishStatus,
       publishedAt: row.published_at ? new Date(row.published_at as string) : undefined,
       unpublishedAt: row.unpublished_at ? new Date(row.unpublished_at as string) : undefined,
       metadata: parseJson<Record<string, unknown>>(row.metadata || {}),

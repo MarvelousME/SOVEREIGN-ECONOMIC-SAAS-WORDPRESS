@@ -15,7 +15,8 @@ export class DashboardService {
   async getDashboardMetrics(
     tenantId: string,
     workspaceId?: string,
-    period: 'today' | '7d' | '30d' | '90d' = '7d'
+    period: 'today' | '7d' | '30d' | '90d' = '7d',
+    region?: string
   ): Promise<DashboardMetrics> {
     const dateFilter = this.getDateFilter(period);
     
@@ -26,6 +27,10 @@ export class DashboardService {
     if (workspaceId) {
       conditions.push(`workspace_id = $${paramIndex++}`);
       values.push(workspaceId);
+    }
+    if (region) {
+      conditions.push(`COALESCE(data->>'region', metadata->>'region', 'global') = $${paramIndex++}`);
+      values.push(region);
     }
 
     const whereClause = conditions.join(' AND ');
@@ -127,6 +132,7 @@ export class DashboardService {
     metricName: string,
     options: {
       workspaceId?: string;
+      region?: string;
       granularity?: 'minute' | 'hour' | 'day' | 'week';
       startDate?: Date;
       endDate?: Date;
@@ -144,6 +150,10 @@ export class DashboardService {
     if (options.workspaceId) {
       conditions.push(`workspace_id = $${paramIndex++}`);
       values.push(options.workspaceId);
+    }
+    if (options.region) {
+      conditions.push(`COALESCE(dimensions->>'region', 'global') = $${paramIndex++}`);
+      values.push(options.region);
     }
     if (options.startDate) {
       conditions.push(`recorded_at >= $${paramIndex++}`);
@@ -182,6 +192,7 @@ export class DashboardService {
     tenantId: string,
     options: {
       workspaceId?: string;
+      region?: string;
       startDate?: Date;
       endDate?: Date;
       limit?: number;
@@ -194,6 +205,10 @@ export class DashboardService {
     if (options.workspaceId) {
       conditions.push(`workspace_id = $${paramIndex++}`);
       values.push(options.workspaceId);
+    }
+    if (options.region) {
+      conditions.push(`COALESCE(data->>'region', metadata->>'region', 'global') = $${paramIndex++}`);
+      values.push(options.region);
     }
     if (options.startDate) {
       conditions.push(`timestamp >= $${paramIndex++}`);
@@ -252,6 +267,7 @@ export class DashboardService {
     tenantId: string,
     options: {
       workspaceId?: string;
+      region?: string;
       startDate?: Date;
       endDate?: Date;
     } = {}
@@ -263,6 +279,10 @@ export class DashboardService {
     if (options.workspaceId) {
       conditions.push(`workspace_id = $${paramIndex++}`);
       values.push(options.workspaceId);
+    }
+    if (options.region) {
+      conditions.push(`COALESCE(data->>'region', metadata->>'region', 'global') = $${paramIndex++}`);
+      values.push(options.region);
     }
     if (options.startDate) {
       conditions.push(`timestamp >= $${paramIndex++}`);
@@ -334,6 +354,7 @@ export class DashboardService {
     tenantId: string,
     options: {
       workspaceId?: string;
+      region?: string;
       startDate?: Date;
       endDate?: Date;
     } = {}
@@ -345,6 +366,10 @@ export class DashboardService {
     if (options.workspaceId) {
       conditions.push(`workspace_id = $${paramIndex++}`);
       values.push(options.workspaceId);
+    }
+    if (options.region) {
+      conditions.push(`COALESCE(data->>'region', metadata->>'region', 'global') = $${paramIndex++}`);
+      values.push(options.region);
     }
     if (options.startDate) {
       conditions.push(`timestamp >= $${paramIndex++}`);
@@ -396,6 +421,7 @@ export class DashboardService {
     tenantId: string,
     options: {
       workspaceId?: string;
+      region?: string;
       startDate?: Date;
       endDate?: Date;
       granularity?: 'day' | 'week' | 'month';
@@ -415,6 +441,10 @@ export class DashboardService {
     if (options.workspaceId) {
       conditions.push(`workspace_id = $${paramIndex++}`);
       values.push(options.workspaceId);
+    }
+    if (options.region) {
+      conditions.push(`COALESCE(metadata->>'region', 'global') = $${paramIndex++}`);
+      values.push(options.region);
     }
     if (options.startDate) {
       conditions.push(`conversion_date >= $${paramIndex++}`);

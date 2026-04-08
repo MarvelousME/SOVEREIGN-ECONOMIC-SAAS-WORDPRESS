@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { ubiController } from '../controllers/ubi-controller';
 import { adminController } from '../controllers/admin-controller';
+import { eventsController } from '../controllers/events-controller';
 
 const router = Router();
 
@@ -16,6 +17,9 @@ router.post('/api/v1/ubi/pool', (req, res) => adminController.configurePool(req,
 router.post('/api/v1/ubi/distribute', (req, res) => adminController.triggerDistribution(req, res));
 router.get('/api/v1/ubi/admin/distributions', (req, res) => adminController.getAllDistributions(req, res));
 router.put('/api/v1/ubi/admin/pool/:poolId', (req, res) => adminController.updatePool(req, res));
+
+// Internal: workflow activities publish domain events to NATS
+router.post('/api/events', (req, res) => eventsController.publish(req, res));
 
 // Health check
 router.get('/health', async (req, res) => {

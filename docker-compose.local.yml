@@ -12,15 +12,16 @@ services:
     image: postgres:16-alpine
     container_name: ubi-postgres-local
     environment:
-      POSTGRES_DB: ubi_dev
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: devpassword123
+      POSTGRES_DB: ${DB_NAME:-ubi_dev}
+      POSTGRES_USER: ${DB_USER:-postgres}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-devpassword123}
     ports:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./api/dev-schema.sql:/docker-entrypoint-initdb.d/01-schema.sql
       - ./api/dev-seed.sql:/docker-entrypoint-initdb.d/02-seed.sql
+      - ./api/dev-patch.sql:/docker-entrypoint-initdb.d/03-dev-patch.sql
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres -d ubi_dev"]
       interval: 5s
@@ -59,13 +60,13 @@ services:
       PORT: 3000
       DB_HOST: postgres
       DB_PORT: 5432
-      DB_NAME: ubi_dev
-      DB_USER: postgres
-      DB_PASSWORD: devpassword123
-      DATABASE_URL: postgresql://postgres:devpassword123@postgres:5432/ubi_dev
+      DB_NAME: ${DB_NAME:-ubi_dev}
+      DB_USER: ${DB_USER:-postgres}
+      DB_PASSWORD: ${DB_PASSWORD:-devpassword123}
+      DATABASE_URL: postgresql://${DB_USER:-postgres}:${DB_PASSWORD:-devpassword123}@postgres:5432/${DB_NAME:-ubi_dev}
       REDIS_HOST: redis
       REDIS_PORT: 6379
-      JWT_SECRET: dev-jwt-secret-change-in-production-must-be-at-least-32-chars
+      JWT_SECRET: ${JWT_SECRET:-dev-jwt-secret-change-in-production-must-be-at-least-32-chars}
       JWT_EXPIRY: 24h
       CORS_ORIGIN: http://localhost:3001,http://localhost:3000
       LOG_LEVEL: debug

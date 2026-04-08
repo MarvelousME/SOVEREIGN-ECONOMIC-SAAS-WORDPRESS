@@ -48,8 +48,9 @@ export class AnalyticsController {
     const tenantId = req.tenantContext!.tenantId;
     const workspaceId = req.query.workspaceId as string | undefined;
     const period = (req.query.period as 'today' | '7d' | '30d' | '90d') || '7d';
+    const region = (req.query.region as string) || req.tenantContext?.region;
 
-    const metrics = await dashboardService.getDashboardMetrics(tenantId, workspaceId, period);
+    const metrics = await dashboardService.getDashboardMetrics(tenantId, workspaceId, period, region);
     
     res.json({ success: true, data: metrics });
   });
@@ -58,10 +59,12 @@ export class AnalyticsController {
     const tenantId = req.tenantContext!.tenantId;
     const workspaceId = req.query.workspaceId as string | undefined;
     const period = (req.query.period as 'today' | '7d' | '30d' | '90d') || '7d';
+    const region = (req.query.region as string) || req.tenantContext?.region;
 
-    const metrics = await dashboardService.getDashboardMetrics(tenantId, workspaceId, period);
+    const metrics = await dashboardService.getDashboardMetrics(tenantId, workspaceId, period, region);
     const metricTimeSeries = await dashboardService.getMetricTimeSeries(tenantId, 'events.total', {
       workspaceId,
+      region,
       granularity: 'hour',
       startDate: new Date(Date.now() - 24 * 60 * 60 * 1000),
     });
@@ -190,12 +193,14 @@ export class AnalyticsController {
   getPageAnalytics = asyncHandler(async (req: Request, res: Response): Promise<void> => {
     const tenantId = req.tenantContext!.tenantId;
     const workspaceId = req.query.workspaceId as string | undefined;
+    const region = (req.query.region as string) || req.tenantContext?.region;
     const startDate = req.query.startDate ? new Date(req.query.startDate as string) : undefined;
     const endDate = req.query.endDate ? new Date(req.query.endDate as string) : undefined;
     const limit = parseInt(req.query.limit as string, 10) || 50;
 
     const pages = await dashboardService.getPageAnalytics(tenantId, {
       workspaceId,
+      region,
       startDate,
       endDate,
       limit,
@@ -207,11 +212,13 @@ export class AnalyticsController {
   getLeadAnalytics = asyncHandler(async (req: Request, res: Response): Promise<void> => {
     const tenantId = req.tenantContext!.tenantId;
     const workspaceId = req.query.workspaceId as string | undefined;
+    const region = (req.query.region as string) || req.tenantContext?.region;
     const startDate = req.query.startDate ? new Date(req.query.startDate as string) : undefined;
     const endDate = req.query.endDate ? new Date(req.query.endDate as string) : undefined;
 
     const leads = await dashboardService.getLeadAnalytics(tenantId, {
       workspaceId,
+      region,
       startDate,
       endDate,
     });
@@ -222,12 +229,14 @@ export class AnalyticsController {
   getRevenueReport = asyncHandler(async (req: Request, res: Response): Promise<void> => {
     const tenantId = req.tenantContext!.tenantId;
     const workspaceId = req.query.workspaceId as string | undefined;
+    const region = (req.query.region as string) || req.tenantContext?.region;
     const startDate = req.query.startDate ? new Date(req.query.startDate as string) : undefined;
     const endDate = req.query.endDate ? new Date(req.query.endDate as string) : undefined;
     const granularity = (req.query.granularity as 'day' | 'week' | 'month') || 'day';
 
     const report = await dashboardService.getRevenueReport(tenantId, {
       workspaceId,
+      region,
       startDate,
       endDate,
       granularity,
@@ -239,11 +248,13 @@ export class AnalyticsController {
   getAgentMetrics = asyncHandler(async (req: Request, res: Response): Promise<void> => {
     const tenantId = req.tenantContext!.tenantId;
     const workspaceId = req.query.workspaceId as string | undefined;
+    const region = (req.query.region as string) || req.tenantContext?.region;
     const startDate = req.query.startDate ? new Date(req.query.startDate as string) : undefined;
     const endDate = req.query.endDate ? new Date(req.query.endDate as string) : undefined;
 
     const metrics = await dashboardService.getAgentMetrics(tenantId, {
       workspaceId,
+      region,
       startDate,
       endDate,
     });
@@ -422,6 +433,7 @@ export class AnalyticsController {
   getMetricTimeSeries = asyncHandler(async (req: Request, res: Response): Promise<void> => {
     const tenantId = req.tenantContext!.tenantId;
     const workspaceId = req.query.workspaceId as string | undefined;
+    const region = (req.query.region as string) || req.tenantContext?.region;
     const { metricName } = req.params;
     const granularity = (req.query.granularity as 'minute' | 'hour' | 'day' | 'week') || 'hour';
     const startDate = req.query.startDate ? new Date(req.query.startDate as string) : undefined;
@@ -429,6 +441,7 @@ export class AnalyticsController {
 
     const series = await dashboardService.getMetricTimeSeries(tenantId, metricName, {
       workspaceId,
+      region,
       granularity,
       startDate,
       endDate,

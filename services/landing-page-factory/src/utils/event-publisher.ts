@@ -116,6 +116,16 @@ class EventPublisher {
       data,
     });
   }
+
+  async publishUbiRewardEvent(data: Record<string, unknown>): Promise<void> {
+    const eventData =
+      typeof data === 'object' && data !== null ? (data as Record<string, unknown>) : { value: data };
+    await this.publish('ubi.reward_event', {
+      eventType: 'ubi.reward_event',
+      timestamp: new Date(),
+      data: eventData,
+    });
+  }
 }
 
 export const eventPublisher = new EventPublisher();

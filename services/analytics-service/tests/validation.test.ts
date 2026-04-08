@@ -182,6 +182,7 @@ describe('Canonical Event Types', () => {
       'agent.run_failed',
       'policy.action_blocked',
       'audit.event_recorded',
+      'social.post_published',
     ];
 
     for (const eventType of requiredTypes) {

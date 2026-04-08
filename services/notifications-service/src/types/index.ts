@@ -60,7 +60,9 @@ export interface NotificationPreferences {
   enabled_channels: NotificationChannel[];
   type_preferences: Record<NotificationType, NotificationChannel[]>;
   digest_mode: boolean;
-  digest_frequency?: 'hourly' | 'daily' | 'weekly';
+  digest_frequency: DigestFrequency;
+  digest_day?: number; // 0-6 for weekly, 0 = Sunday
+  digest_time?: string; // HH:MM format
   dnd_enabled: boolean;
   dnd_start_time?: string;
   dnd_end_time?: string;
@@ -112,4 +114,45 @@ export interface DeliveryResult {
   external_id?: string;
   error?: string;
   delivered_at?: Date;
+}
+
+export type DigestFrequency = 'immediate' | 'daily' | 'weekly';
+
+export const DigestFrequency = {
+  IMMEDIATE: 'immediate',
+  DAILY: 'daily',
+  WEEKLY: 'weekly'
+} as const;
+
+export interface DigestPreferences {
+  user_id: string;
+  tenant_id: string;
+  digest_frequency: DigestFrequency;
+  digest_day: number; // 0-6 for weekly, 0 = Sunday
+  digest_time: string; // HH:MM format
+  last_digest_sent_at: Date | null;
+  created_at: Date;
+  updated_at: Date;
+}
+
+export interface PendingNotification {
+  id: string;
+  tenant_id: string;
+  user_id: string;
+  batch_id: string;
+  type: NotificationType;
+  channel: NotificationChannel;
+  priority: NotificationPriority;
+  title: string;
+  message: string;
+  data?: Record<string, any>;
+  created_at: Date;
+}
+
+export interface DigestEmailData {
+  user_id: string;
+  email: string;
+  frequency: DigestFrequency;
+  notifications: PendingNotification[];
+  generated_at: Date;
 }

@@ -10,21 +10,71 @@ import {
   NotificationPriority,
   NotificationStatus,
   SendNotificationRequest,
-  DeliveryResult
+  DeliveryResult,
+  DigestFrequency
 } from '../types';
 import { emailProvider } from './channels/email.provider';
 import { smsProvider } from './channels/sms.provider';
 import { pushProvider } from './channels/push.provider';
+import { digestService } from './digest.service';
 
 class NotificationService {
   async sendNotification(request: SendNotificationRequest): Promise<Notification[]> {
     try {
       // Get user preferences
       const preferences = await this.getUserPreferences(request.tenant_id, request.user_id);
-      
+
+      // Get digest preferences
+      const digestPrefs = await digestService.getOrCreateDigestPreferences(
+        request.tenant_id,
+        request.user_id
+      );
+
+      // Check if user prefers digest mode
+      if (digestPrefs.digest_frequency !== 'immediate' && !request.scheduled_for) {
+        // Queue for digest instead of sending immediately
+        const pending = await digestService.queueForDigest(
+          request.tenant_id,
+          request.user_id,
+          {
+            type: request.type,
+            channel: request.channels?.[0] || NotificationChannel.EMAIL,
+            title: request.title,
+            message: request.message,
+            data: request.data,
+            priority: request.priority
+          }
+        );
+
+        if (pending) {
+          logger.info('Notification queued for digest', {
+            userId: request.user_id,
+            notificationId: pending.id,
+            digestFrequency: digestPrefs.digest_frequency
+          });
+
+          // Return a pending notification record
+          return [{
+            id: pending.id,
+            tenant_id: pending.tenant_id,
+            user_id: pending.user_id,
+            type: pending.type,
+            channel: pending.channel,
+            priority: pending.priority as NotificationPriority,
+            status: NotificationStatus.PENDING,
+            title: pending.title,
+            message: pending.message,
+            data: pending.data,
+            retry_count: 0,
+            created_at: pending.created_at,
+            updated_at: pending.created_at
+          }];
+        }
+      }
+
       // Determine channels to use
       const channels = this.determineChannels(request, preferences);
-      
+
       if (channels.length === 0) {
         logger.warn('No enabled channels for notification', { request });
         return [];
@@ -280,6 +330,7 @@ class NotificationService {
       ],
       type_preferences: {} as Record<NotificationType, NotificationChannel[]>,
       digest_mode: false,
+      digest_frequency: DigestFrequency.IMMEDIATE,
       dnd_enabled: false,
       locale: 'en',
       timezone: 'UTC',

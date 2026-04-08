@@ -223,6 +223,25 @@ Access: `https://monitoring.yourdomain.com`
 - Enhancement requests
 - Response time: Next business day
 
+### Domain Runbook: Rewards ↔ Ledger Saga/Outbox
+
+For reward-to-ledger eventual consistency incidents, use the dedicated runbook:
+
+- `docs/integration/rewards-ledger-saga-outbox-reliability.md`
+
+Fast triage checklist:
+
+1. Check outbox backlog and age (pending > 10 minutes).
+2. Check reward->ledger P95 latency against domain SLO.
+3. Check DLQ growth and top error class.
+4. Check reconciliation mismatch counters.
+5. Decide recovery path:
+   - replay pending outbox, or
+   - bounded DLQ re-drive, or
+   - rollback/fix consumer.
+
+Escalate to finance-impacting incident immediately if critical mismatches persist beyond retry window.
+
 ### Common Incidents
 
 #### Service Down

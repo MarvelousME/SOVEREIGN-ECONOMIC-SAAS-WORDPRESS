@@ -1,18 +1,32 @@
 # QUICK DEMO GUIDE
 
 **Duration:** 10 minutes  
-**Prerequisites:** Docker Desktop running, containers started
+**Prerequisites:** Docker or Podman with Compose, ports **3000**, **3001**, **5432**, and **6379** free
 
 ---
 
 ## SETUP (30 seconds)
 
 ```bash
-# Start all services
-docker compose -f docker-compose.local.yml up -d
+# Start API + Postgres + Redis (minimal demo stack)
+docker compose -f docker-compose.local.yml up --build -d
+# Podman:
+#   podman compose -f docker-compose.local.yml up --build -d
+#   npm run local:up:podman
 
 # Verify all containers are running
 docker compose -f docker-compose.local.yml ps
+
+# Portal UI (separate process — serves http://localhost:3001)
+npm run local:portal:install   # first time only
+npm run local:portal
+```
+
+**Note:** If you were running the full dev stack (`docker-compose.dev.yml`), stop it first so ports do not conflict:
+
+```bash
+docker compose -f docker-compose.dev.yml down
+# Podman: podman compose -f docker-compose.dev.yml down
 ```
 
 **Expected output:**
@@ -30,7 +44,7 @@ ubi-api-local      Started
 ### Step 1: Portal UI Overview (1 min)
 **URL:** http://localhost:3001
 
-1. Click **"Try Demo"** (no login required)
+1. Click **"Try Demo (no account needed)"** (no login required)
 2. Show the dashboard layout
 3. Point out the sidebar navigation
 4. Mention "Demo Mode" badge in top right
@@ -142,7 +156,9 @@ ubi-api-local      Started
 
 ## WORDPRESS SSO DEMO (Optional - 1 min)
 
-**URL:** http://localhost:8080
+Requires a WordPress + Keycloak environment (not part of `docker-compose.local.yml`). If you use `docker-compose.dev.yml`, Keycloak is typically at **http://localhost:8080**; WordPress must be started from its own compose or host setup.
+
+**Example URL (when WP is running):** your WordPress base URL (often `http://localhost:8080` only if WP is bound to that port).
 
 1. Go to WordPress login page
 2. Click **"Sign in with Keycloak"**
@@ -177,7 +193,7 @@ ubi-api-local      Started
 
 ### For Technical Audience
 - "This is a modular monolith with event contracts"
-- "14 microservices, all independently deployable"
+- "20+ Node service packages under `services/`, each with its own Dockerfile; CI builds a subset via `build.yml`"
 - "PostgreSQL with Row-Level Security for tenant isolation"
 - "NATS for event-driven architecture"
 - "Temporal for long-running workflows"
@@ -203,17 +219,19 @@ ubi-api-local      Started
 ### Containers not starting
 ```bash
 docker compose -f docker-compose.local.yml down
-docker compose -f docker-compose.local.yml up -d
+docker compose -f docker-compose.local.yml up --build -d
 ```
 
 ### API not responding
 ```bash
 docker logs ubi-api-local
+# Podman: podman logs ubi-api-local
 ```
 
 ### Database connection issues
 ```bash
-docker exec -it ubi-postgres-local psql -U postgres -d ubi_platform
+docker exec -it ubi-postgres-local psql -U postgres -d ubi_dev
+# Podman: podman exec -it ubi-postgres-local psql -U postgres -d ubi_dev
 ```
 
 ---

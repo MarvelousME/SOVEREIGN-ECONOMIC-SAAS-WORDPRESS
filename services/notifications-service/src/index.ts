@@ -10,6 +10,8 @@ import { db } from './utils/database';
 import { redis } from './utils/redis';
 import { eventsService } from './services/events.service';
 import notificationsRoutes from './routes/notifications.routes';
+import digestRoutes from './routes/digest.routes';
+import adminDigestRoutes from './routes/admin-digest.routes';
 
 const app = express();
 
@@ -52,6 +54,8 @@ app.get('/health', async (req, res) => {
 
 // Routes
 app.use('/api/v1/notifications', notificationsRoutes);
+app.use('/api/v1/notifications', digestRoutes);
+app.use('/api/v1/notifications', adminDigestRoutes);
 
 // Error handler
 app.use((err: Error, req: express.Request, res: express.Response, next: express.NextFunction) => {

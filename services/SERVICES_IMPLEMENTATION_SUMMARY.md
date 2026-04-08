@@ -298,6 +298,243 @@ The reporting service queries existing tables:
 
 ---
 
+## SWARM 5 Feature Additions
+
+### 1. API Keys Management UI (WordPress Plugin Enhancement)
+
+**Location:** `/wordpress/wp-content/plugins/ubi-auth/`
+**Version:** 1.0.4
+
+#### Features Implemented
+- Database table for API key storage (`ubi_api_keys`)
+- HMAC-SHA256 JWT signing with proper signature verification
+- AJAX handlers for API key lifecycle management:
+  - `ubi_generate_api_key` - Generate new API key
+  - `ubi_revoke_api_key` - Revoke existing API key
+  - `ubi_get_api_keys` - List user's API keys
+- Admin menu integration with submenu pages
+- CSS styling for API keys management UI
+
+#### Database Table
+```sql
+CREATE TABLE {$wpdb->prefix}ubi_api_keys (
+    id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+    user_id bigint(20) unsigned NOT NULL,
+    key_hash varchar(64) NOT NULL,
+    key_prefix varchar(8) NOT NULL,
+    name varchar(255) NOT NULL,
+    created_at datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    last_used_at datetime DEFAULT NULL,
+    revoked_at datetime DEFAULT NULL,
+    PRIMARY KEY  (id),
+    KEY user_id (user_id),
+    KEY key_hash (key_hash),
+    KEY created_at (created_at)
+);
+```
+
+#### Files Created/Modified
+- `wordpress/wp-content/plugins/ubi-auth/ubi-auth.php` - Main plugin class
+- `wordpress/wp-content/plugins/ubi-auth/assets/css/admin.css` - Admin UI styles
+
+#### Configuration
+```php
+// Required environment variables
+define('UBI_JWT_SECRET', 'your-secret-key'); // Required in production
+define('WP_ENV', 'development'); // or 'production'
+```
+
+#### Usage
+Admin menu: WordPress Dashboard → UBI Auth → API Keys
+
+---
+
+### 2. PDF Export Service (Reporting Service Enhancement)
+
+**Location:** `/services/reporting-service/`
+
+#### Features Implemented
+- Professional PDF report generation using PDFKit
+- Dashboard report with branded header/footer
+- Key performance metrics visualization
+- Financial summary with revenue/expense tables
+- Treasury performance section with allocations
+- Automatic page breaks and formatting
+
+#### API Endpoints Added
+
+```
+GET /api/v1/reports/dashboard/pdf - Generate dashboard PDF report
+```
+
+**Query Parameters:**
+- `period` (optional): Time period for report (default: 30d)
+
+**Response:** Binary PDF file download
+
+#### Files Created
+- `services/reporting-service/src/services/pdfExport.service.ts` - PDF generation service
+- `services/reporting-service/src/routes/reports.routes.ts` - PDF export route (lines 63-92)
+
+#### Usage Example
+```bash
+curl http://localhost:3008/api/v1/reports/dashboard/pdf \
+  -H "X-Tenant-ID: your-tenant-id" \
+  -H "X-Tenant-Region: global" \
+  --output dashboard-report.pdf
+```
+
+#### Dependencies Added
+- `pdfkit` - PDF generation library
+
+---
+
+### 3. CSV Export Service (Reporting Service Enhancement)
+
+**Location:** `/services/reporting-service/`
+
+#### Features Implemented
+- Streaming CSV generation for large datasets
+- 11 distinct export endpoints covering all report types
+- Automatic header generation
+- CSV escaping for special characters
+- Formatted reports with summary sections
+
+#### API Endpoints Added
+
+```
+GET /api/v1/reports/dashboard/csv              - Dashboard summary CSV
+GET /api/v1/reports/revenue/csv                 - Revenue breakdown CSV
+GET /api/v1/reports/expenses/csv               - Expense categories CSV
+GET /api/v1/reports/cash-flow/csv              - Cash flow CSV
+GET /api/v1/reports/financial/csv              - Full financial summary CSV
+GET /api/v1/reports/ubi-stats/csv             - UBI statistics CSV
+GET /api/v1/reports/task-analytics/csv        - Task analytics CSV
+GET /api/v1/reports/user-activity/csv        - User activity CSV
+GET /api/v1/reports/agent-performance/csv    - Agent performance CSV
+GET /api/v1/reports/transactions/csv         - Transaction history CSV
+```
+
+**Query Parameters:**
+- `period` (optional): Time period for report (default: 30d)
+
+**Response:** CSV file download with appropriate Content-Disposition header
+
+#### Files Created
+- `services/reporting-service/src/services/csvExport.service.ts` - CSV export service (445 lines)
+- `services/reporting-service/src/routes/reports.routes.ts` - CSV export routes (lines 187-366)
+
+#### Usage Example
+```bash
+# Export dashboard metrics
+curl http://localhost:3008/api/v1/reports/dashboard/csv \
+  -H "X-Tenant-ID: your-tenant-id" \
+  --output dashboard.csv
+
+# Export financial summary for last 90 days
+curl http://localhost:3008/api/v1/reports/financial/csv?period=90d \
+  -H "X-Tenant-ID: your-tenant-id" \
+  --output financial-90d.csv
+```
+
+#### Dependencies Added
+- `csv-stringify` - CSV generation library
+
+---
+
+### 4. Notifications Digest Mode (Notifications Service Enhancement)
+
+**Location:** `/services/notifications-service/`
+
+#### Features Implemented
+- Digest mode preference per user
+- Configurable digest frequency (hourly, daily, weekly)
+- User preference API endpoints
+- DND (Do-Not-Disturb) scheduling support
+- Type-specific channel routing
+
+#### API Endpoints
+
+```
+GET  /api/v1/notifications/preferences  - Get user notification preferences
+PUT  /api/v1/notifications/preferences  - Update notification preferences
+```
+
+**Preference Schema:**
+```json
+{
+  "enabled_channels": ["email", "in_app"],
+  "type_preferences": {
+    "task_assigned": ["email", "push"],
+    "ubi_distribution": ["email"]
+  },
+  "digest_mode": true,
+  "digest_frequency": "daily",
+  "dnd_enabled": true,
+  "dnd_start_time": "22:00",
+  "dnd_end_time": "08:00",
+  "locale": "en",
+  "timezone": "America/New_York"
+}
+```
+
+#### Types Added
+```typescript
+export type DigestFrequency = 'immediate' | 'daily' | 'weekly';
+
+export interface DigestPreferences {
+  user_id: string;
+  tenant_id: string;
+  digest_frequency: DigestFrequency;
+  digest_day: number;      // 0-6 for weekly, 0 = Sunday
+  digest_time: string;     // HH:MM format
+  last_digest_sent_at: Date | null;
+}
+
+export interface PendingNotification {
+  id: string;
+  tenant_id: string;
+  user_id: string;
+  batch_id: string;
+  type: NotificationType;
+  channel: NotificationChannel;
+  priority: NotificationPriority;
+  title: string;
+  message: string;
+  data?: Record<string, any>;
+  created_at: Date;
+}
+
+export interface DigestEmailData {
+  user_id: string;
+  email: string;
+  frequency: DigestFrequency;
+  notifications: PendingNotification[];
+  generated_at: Date;
+}
+```
+
+#### Files Modified
+- `services/notifications-service/src/types/index.ts` - Added digest-related types
+- `services/notifications-service/src/routes/notifications.routes.ts` - Added digest preferences endpoints
+- `services/notifications-service/src/services/notification.service.ts` - Added digest_mode defaults
+
+#### Usage Example
+```bash
+# Update user to daily digest mode
+curl -X PUT http://localhost:3007/api/v1/notifications/preferences \
+  -H "Content-Type: application/json" \
+  -H "X-Tenant-ID: tenant-uuid" \
+  -H "X-User-ID: user-uuid" \
+  -d '{
+    "digest_mode": true,
+    "digest_frequency": "daily",
+    "digest_time": "09:00"
+  }'
+```
+
+---
+
 ## Technology Stack
 
 ### Shared Dependencies
@@ -432,18 +669,20 @@ setInterval(async () => {
 
 ## Future Enhancements
 
-### Notifications Service
+### Notifications Service (SWARM 5 Updates)
+- [x] Digest mode preferences (per-user configurable)
+- [x] Digest frequency options (hourly, daily, weekly)
 - [ ] Scheduled report delivery integration
-- [ ] Digest email aggregation
+- [ ] Digest email aggregation (batch processing)
 - [ ] Webhook delivery channel
 - [ ] Notification history retention policy
 - [ ] A/B testing for notification templates
 - [ ] Rich media support (images, attachments)
 - [ ] Interactive notifications (action buttons)
 
-### Reporting Service
-- [ ] PDF export generation
-- [ ] CSV export for all reports
+### Reporting Service (SWARM 5 Updates)
+- [x] PDF export generation (dashboard report)
+- [x] CSV export for all reports (11 export endpoints)
 - [ ] Scheduled report delivery (daily/weekly)
 - [ ] Custom report builder UI
 - [ ] Trend analysis & forecasting
@@ -536,8 +775,19 @@ curl http://localhost:3008/api/v1/reports/dashboard \
 
 Both services are production-ready with comprehensive implementations:
 
-✅ **Notifications Service** - Complete multi-channel notification system with template management, user preferences, and event-driven delivery
+✅ **Notifications Service** - Complete multi-channel notification system with template management, user preferences, digest mode support, and event-driven delivery
 
-✅ **Reporting Service** - Full-featured analytics platform with real-time dashboards, financial reports, and performance metrics
+✅ **Reporting Service** - Full-featured analytics platform with real-time dashboards, financial reports, PDF/CSV export capabilities, and performance metrics
+
+### SWARM 5 Summary
+
+| Feature | Status | Files |
+|---------|--------|-------|
+| API Keys Management UI | ✅ Infrastructure Complete | ubi-auth.php, admin.css |
+| PDF Export Service | ✅ Implemented | pdfExport.service.ts, reports.routes.ts |
+| CSV Export Service | ✅ Implemented | csvExport.service.ts, reports.routes.ts |
+| Notifications Digest Mode | ✅ Types & API Complete | notification.service.ts, types/index.ts |
+
+**Breaking Changes:** None - All existing APIs remain unchanged.
 
 The services follow microservice best practices with proper separation of concerns, scalable architecture, and production-grade error handling and logging.

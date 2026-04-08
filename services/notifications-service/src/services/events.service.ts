@@ -36,14 +36,14 @@ class EventsService {
 
     // Subscribe to various events
     const subscriptions = [
-      { subject: 'task.assigned', handler: this.handleTaskAssigned.bind(this) },
+      { subject: 'task.claimed', handler: this.handleTaskClaimed.bind(this) },
       { subject: 'task.approved', handler: this.handleTaskApproved.bind(this) },
       { subject: 'task.rejected', handler: this.handleTaskRejected.bind(this) },
       { subject: 'ubi.distributed', handler: this.handleUBIDistributed.bind(this) },
-      { subject: 'reward.issued', handler: this.handleRewardIssued.bind(this) },
-      { subject: 'treasury.performance', handler: this.handleTreasuryPerformance.bind(this) },
-      { subject: 'agent.execution.complete', handler: this.handleAgentExecutionComplete.bind(this) },
-      { subject: 'governance.proposal', handler: this.handleGovernanceProposal.bind(this) }
+      { subject: 'reward.distributed', handler: this.handleRewardDistributed.bind(this) },
+      { subject: 'treasury.compounded', handler: this.handleTreasuryCompounded.bind(this) },
+      { subject: 'agent.completed', handler: this.handleAgentCompleted.bind(this) },
+      { subject: 'proposal.created', handler: this.handleProposalCreated.bind(this) },
     ];
 
     for (const { subject, handler } of subscriptions) {
@@ -65,93 +65,144 @@ class EventsService {
     }
   }
 
-  private async handleTaskAssigned(data: any): Promise<void> {
+  private async handleTaskClaimed(data: any): Promise<void> {
+    const userId = data.assignee_id ?? data.user_id ?? data.userId;
+    const tenantId = data.tenant_id ?? data.tenantId ?? 'default';
+    if (!userId) {
+      logger.warn('task.claimed missing assignee', { data });
+      return;
+    }
     await notificationService.sendNotification({
-      tenant_id: data.tenant_id,
-      user_id: data.assigned_to,
+      tenant_id: tenantId,
+      user_id: userId,
       type: NotificationType.TASK_ASSIGNED,
       priority: NotificationPriority.HIGH,
-      title: 'New Task Assigned',
-      message: `You have been assigned a new task: ${data.task_title}`,
-      data: { task_id: data.task_id }
+      title: 'Task Claimed',
+      message: `You claimed task ${data.task_id ?? ''}.`,
+      data: { task_id: data.task_id },
     });
   }
 
   private async handleTaskApproved(data: any): Promise<void> {
+    const userId = data.assignee_id ?? data.user_id ?? data.userId;
+    const tenantId = data.tenant_id ?? data.tenantId ?? 'default';
+    const label = data.task_title ?? data.task_id ?? 'task';
+    if (!userId) {
+      logger.warn('task.approved missing assignee', { data });
+      return;
+    }
     await notificationService.sendNotification({
-      tenant_id: data.tenant_id,
-      user_id: data.user_id,
+      tenant_id: tenantId,
+      user_id: userId,
       type: NotificationType.TASK_APPROVED,
       priority: NotificationPriority.NORMAL,
       title: 'Task Approved',
-      message: `Your task "${data.task_title}" has been approved!`,
+      message: `Your task "${label}" has been approved!`,
       data: { task_id: data.task_id, reward_amount: data.reward_amount }
     });
   }
 
   private async handleTaskRejected(data: any): Promise<void> {
+    const userId = data.assignee_id ?? data.user_id ?? data.userId;
+    const tenantId = data.tenant_id ?? data.tenantId ?? 'default';
+    const label = data.task_title ?? data.task_id ?? 'task';
+    if (!userId) {
+      logger.warn('task.rejected missing assignee', { data });
+      return;
+    }
     await notificationService.sendNotification({
-      tenant_id: data.tenant_id,
-      user_id: data.user_id,
+      tenant_id: tenantId,
+      user_id: userId,
       type: NotificationType.TASK_REJECTED,
       priority: NotificationPriority.NORMAL,
       title: 'Task Rejected',
-      message: `Your task "${data.task_title}" was rejected. Reason: ${data.reason}`,
+      message: `Your task "${label}" was rejected. Reason: ${data.feedback ?? data.reason ?? 'n/a'}`,
       data: { task_id: data.task_id }
     });
   }
 
   private async handleUBIDistributed(data: any): Promise<void> {
+    const userId = data.user_id ?? data.userId;
+    const tenantId = data.tenant_id ?? data.tenantId ?? 'default';
+    const amount = data.amount;
+    const currency = data.currency ?? 'UBI';
+    const period = data.period ?? data.distribution_id ?? 'distribution';
+    if (!userId) {
+      logger.warn('ubi.distributed missing user', { data });
+      return;
+    }
     await notificationService.sendNotification({
-      tenant_id: data.tenant_id,
-      user_id: data.user_id,
+      tenant_id: tenantId,
+      user_id: userId,
       type: NotificationType.UBI_DISTRIBUTION,
       priority: NotificationPriority.NORMAL,
       title: 'UBI Received',
-      message: `You received ${data.amount} ${data.currency} in UBI for ${data.period}`,
-      data: { amount: data.amount, period: data.period }
+      message: `You received ${amount} ${currency} in UBI (${period}).`,
+      data: { amount, period, currency },
     });
   }
 
-  private async handleRewardIssued(data: any): Promise<void> {
+  private async handleRewardDistributed(data: any): Promise<void> {
+    const userId = data.userId ?? data.user_id;
+    const tenantId = data.tenant_id ?? data.tenantId ?? 'default';
+    if (!userId) {
+      logger.warn('reward.distributed missing user', { data });
+      return;
+    }
+    const amount = data.totalAmount ?? data.amount;
     await notificationService.sendNotification({
-      tenant_id: data.tenant_id,
-      user_id: data.user_id,
+      tenant_id: tenantId,
+      user_id: userId,
       type: NotificationType.REWARD_RECEIVED,
       priority: NotificationPriority.HIGH,
-      title: 'Reward Received',
-      message: `You earned ${data.amount} ${data.currency} for ${data.reason}!`,
-      data: { amount: data.amount, reason: data.reason }
+      title: 'Rewards Distributed',
+      message: `You received ${amount} UBI from claimed rewards.`,
+      data: {
+        amount,
+        transaction_id: data.transactionId ?? data.transaction_id,
+        reward_ids: data.rewardIds ?? data.reward_ids,
+      },
     });
   }
 
-  private async handleTreasuryPerformance(data: any): Promise<void> {
-    // Send to all users with treasury_updates preference
-    // This would be implemented with a batch notification system
-    logger.info('Treasury performance notification', { data });
+  private async handleTreasuryCompounded(data: any): Promise<void> {
+    logger.info('Treasury compounded event', { data });
   }
 
-  private async handleAgentExecutionComplete(data: any): Promise<void> {
+  private async handleAgentCompleted(data: any): Promise<void> {
+    const userId = data.userId ?? data.user_id;
+    const tenantId = data.tenant_id ?? data.tenantId ?? 'default';
+    if (!userId) {
+      logger.warn('agent.completed missing userId', { data });
+      return;
+    }
+    const status = data.payload?.status ?? 'completed';
     await notificationService.sendNotification({
-      tenant_id: data.tenant_id,
-      user_id: data.user_id,
+      tenant_id: tenantId,
+      user_id: userId,
       type: NotificationType.AGENT_EXECUTION_COMPLETE,
       priority: NotificationPriority.NORMAL,
       title: 'Agent Execution Complete',
-      message: `Your agent "${data.agent_name}" has completed execution. Status: ${data.status}`,
-      data: { execution_id: data.execution_id, agent_id: data.agent_id }
+      message: `Your agent "${data.agentId}" finished. Status: ${status}`,
+      data: { execution_id: data.executionId, agent_id: data.agentId },
     });
   }
 
-  private async handleGovernanceProposal(data: any): Promise<void> {
+  private async handleProposalCreated(data: any): Promise<void> {
+    const userId = data.proposerId ?? data.user_id ?? data.userId;
+    const tenantId = data.tenant_id ?? data.tenantId ?? 'default';
+    if (!userId) {
+      logger.warn('proposal.created missing proposer', { data });
+      return;
+    }
     await notificationService.sendNotification({
-      tenant_id: data.tenant_id,
-      user_id: data.user_id,
+      tenant_id: tenantId,
+      user_id: userId,
       type: NotificationType.GOVERNANCE_PROPOSAL,
       priority: NotificationPriority.URGENT,
-      title: 'New Governance Proposal',
-      message: `New proposal: ${data.proposal_title}. Voting ends ${data.voting_deadline}`,
-      data: { proposal_id: data.proposal_id }
+      title: 'Governance Proposal Created',
+      message: `Your proposal "${data.title}" is live.`,
+      data: { proposal_id: data.proposalId ?? data.proposal_id },
     });
   }
 

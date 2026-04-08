@@ -54,7 +54,7 @@ export class TemplateEngineService {
         { name: 'backgroundColor', type: 'color', defaultValue: '#ffffff' },
       ],
       isPublic: true,
-      isA/BTestable: true,
+      isAbTestable: true,
       createdAt: new Date(),
       updatedAt: new Date(),
     };
@@ -80,7 +80,7 @@ export class TemplateEngineService {
         { name: 'primaryColor', type: 'color', defaultValue: '#10B981' },
       ],
       isPublic: true,
-      isA/BTestable: true,
+      isAbTestable: true,
       createdAt: new Date(),
       updatedAt: new Date(),
     };
@@ -106,7 +106,7 @@ export class TemplateEngineService {
         { name: 'primaryColor', type: 'color', defaultValue: '#8B5CF6' },
       ],
       isPublic: true,
-      isA/BTestable: true,
+      isAbTestable: true,
       createdAt: new Date(),
       updatedAt: new Date(),
     };
@@ -132,7 +132,7 @@ export class TemplateEngineService {
         { name: 'primaryColor', type: 'color', defaultValue: '#EF4444' },
       ],
       isPublic: true,
-      isA/BTestable: true,
+      isAbTestable: true,
       createdAt: new Date(),
       updatedAt: new Date(),
     };
@@ -157,7 +157,7 @@ export class TemplateEngineService {
         { name: 'primaryColor', type: 'color', defaultValue: '#F59E0B' },
       ],
       isPublic: true,
-      isA/BTestable: true,
+      isAbTestable: true,
       createdAt: new Date(),
       updatedAt: new Date(),
     };
@@ -182,7 +182,7 @@ export class TemplateEngineService {
         { name: 'primaryColor', type: 'color', defaultValue: '#06B6D4' },
       ],
       isPublic: true,
-      isA/BTestable: true,
+      isAbTestable: true,
       createdAt: new Date(),
       updatedAt: new Date(),
     };
@@ -199,7 +199,7 @@ export class TemplateEngineService {
       defaultMetadata: data.defaultMetadata,
       variables: data.variables || [],
       isPublic: data.isPublic || false,
-      isA/BTestable: data.isA/BTestable !== false,
+      isAbTestable: data.isAbTestable !== false,
       createdAt: new Date(),
       updatedAt: new Date(),
     };
@@ -259,12 +259,12 @@ export class TemplateEngineService {
     content: PageBlock['content'],
     variables: Record<string, unknown>
   ): PageBlock['content'] {
-    const resolved = { ...content };
+    const resolved: Record<string, unknown> = { ...content };
 
-    for (const key of Object.keys(resolved) as (keyof typeof resolved)[]) {
+    for (const key of Object.keys(resolved)) {
       const value = resolved[key];
       if (typeof value === 'string') {
-        resolved[key] = this.interpolateVariables(value, variables) as typeof value;
+        resolved[key] = this.interpolateVariables(value, variables);
       } else if (Array.isArray(value)) {
         resolved[key] = value.map((item) => {
           if (typeof item === 'object' && item !== null) {
@@ -274,13 +274,13 @@ export class TemplateEngineService {
             return this.interpolateVariables(item, variables);
           }
           return item;
-        }) as typeof value;
+        });
       } else if (typeof value === 'object' && value !== null) {
         resolved[key] = this.resolveContentVariables(value as PageBlock['content'], variables);
       }
     }
 
-    return resolved;
+    return resolved as PageBlock['content'];
   }
 
   private resolveMetadataVariables(

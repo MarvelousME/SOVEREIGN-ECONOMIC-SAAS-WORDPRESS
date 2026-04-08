@@ -206,7 +206,7 @@ No text, icon only, simple shapes, flat design.
         style: 'natural',
       });
 
-      const imageUrl = response.data[0].url;
+      const imageUrl = response.data?.[0]?.url;
       if (!imageUrl) {
         throw new Error('No image URL returned');
       }
@@ -249,7 +249,7 @@ No text, icon only, simple shapes, flat design.
           quality: 'standard',
         });
 
-        const url = response.data[0].url;
+        const url = response.data?.[0]?.url;
         if (url) {
           variations.push(url);
         }

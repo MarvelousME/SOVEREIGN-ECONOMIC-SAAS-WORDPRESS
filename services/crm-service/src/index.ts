@@ -5,6 +5,7 @@ import { config } from './config';
 import routes from './routes';
 import { errorHandler } from './middleware/errorHandler';
 import { requestLogger } from './middleware/requestLogger';
+import { requireTenantContext } from './middleware/tenantContext';
 
 const app = express();
 
@@ -17,7 +18,7 @@ app.get('/health', (req, res) => {
   res.json({ status: 'ok', service: 'crm-service' });
 });
 
-app.use('/crm', routes);
+app.use('/crm', requireTenantContext, routes);
 
 app.use(errorHandler);
 

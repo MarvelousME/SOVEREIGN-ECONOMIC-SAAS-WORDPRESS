@@ -24,10 +24,10 @@
 
 | Tool | Minimum Version | Installation |
 |------|----------------|-------------|
-| Node.js | 18.x | [nodejs.org](https://nodejs.org) |
+| Node.js | 20.x (recommended; matches CI and `api/Dockerfile`; `api/package.json` allows ≥18) | [nodejs.org](https://nodejs.org) |
 | npm | 9.x | Included with Node.js |
-| Docker Desktop | 4.x | [docker.com](https://docker.com) |
-| Docker Compose | 2.x | Included with Docker Desktop |
+| Docker Desktop **or** Podman | 4.x / recent | [docker.com](https://docker.com) · [podman.io](https://podman.io) (use `podman compose` where docs say `docker compose`) |
+| Docker Compose | 2.x | Included with Docker Desktop; or Compose provider for Podman |
 | Git | 2.x | [git-scm.com](https://git-scm.com) |
 
 Optional but recommended:
@@ -43,7 +43,7 @@ Optional but recommended:
 
 ```bash
 git clone <repo-url>
-cd UBI-CMS
+cd <repository-root>   # your clone directory (e.g. SOVEREIGN-ECONOMIC-SAAS-WORDPRESS)
 
 # Copy environment template
 cp .env.production.example .env.local
@@ -56,19 +56,26 @@ DB_HOST=localhost
 DB_PORT=5432
 DB_NAME=ubi_dev
 DB_USER=postgres
-DB_PASSWORD=dev_password_123
-DATABASE_URL=postgresql://postgres:dev_password_123@localhost:5432/ubi_dev
+DB_PASSWORD=devpassword123
+DATABASE_URL=postgresql://postgres:devpassword123@localhost:5432/ubi_dev
 
 REDIS_HOST=localhost
 REDIS_PORT=6379
 REDIS_PASSWORD=
 
 JWT_SECRET=dev-jwt-secret-change-in-production-must-be-at-least-32-chars
-JWT_EXPIRY=1h
+JWT_EXPIRY=24h
 
 CORS_ORIGIN=http://localhost:3001
 NODE_ENV=development
 LOG_LEVEL=debug
+
+# Landing Page Factory readiness flags (optional, safe defaults)
+REGION_TAG=us-east-1
+MULTI_REGION_READY=false
+WHITE_LABEL_READY=false
+TENANT_BRANDING_DOMAIN=
+TENANT_BRANDING_SUBDOMAIN=
 ```
 
 ### 2. Start infrastructure services
@@ -97,18 +104,14 @@ See commented variables in `.env.example` under “Optional local extras”. Ser
 
 ### 3. Set up the database
 
-```bash
-# Run migrations
-cd migrations
-docker run --rm \
-  --network host \
-  -e DATABASE_URL="postgresql://postgres:dev_password_123@localhost:5432/ubi_dev" \
-  -v "$(pwd):/migrations" \
-  postgres:15 psql "$DATABASE_URL" -f /migrations/000_run_all_migrations.sql
+`docker-compose.local.yml` and `docker-compose.dev.yml` mount `api/dev-schema.sql`, `api/dev-seed.sql`, and `api/dev-patch.sql` into Postgres on first start (alphabetical order under `docker-entrypoint-initdb.d`), so a minimal local stack usually **does not** require a separate migration step. The patch file adds marketplace/notifications tables and **demo-linked rows** (treasury, rewards, task assignments, agent executions, app installs). Existing data volumes skip init scripts; apply changes manually with `psql -f api/dev-patch.sql` if needed.
 
-# Or connect directly if you have psql installed
-psql postgresql://postgres:dev_password_123@localhost:5432/ubi_dev \
-  -f 000_run_all_migrations.sql
+If you need to (re)apply SQL migrations manually against the **same** credentials as local Compose:
+
+```bash
+# From repository root; password must match docker-compose.local.yml (POSTGRES_PASSWORD)
+psql "postgresql://postgres:devpassword123@localhost:5432/ubi_dev" \
+  -f migrations/000_run_all_migrations.sql
 ```
 
 ### 4. Start the API
@@ -136,22 +139,27 @@ npm run dev
 # Portal available at http://localhost:3001
 ```
 
+Sign in with a user that has **`admin`** or **`developer`** role to open **Architecture** and **Workflows** in the dashboard sidebar. Those pages post to `frontend/portal-ui` API routes that write under `generated/architecture/outputs/` (see [`generated/architecture/README.md`](../generated/architecture/README.md)). Optional env: `ARCHITECTURE_WRITE_SECRET`, `ARCHITECTURE_ALLOW_APPLY` — [Environment variables](./environment-variables.md#portal-architecture-routes-nextjs-server-only).
+
 ---
 
 ## Project Structure
 
 ```
-UBI-CMS/
+<repository-root>/
 ├── api/                          # Node.js/Express backend
 │   ├── src/
 │   │   ├── Config/
 │   │   │   └── app.js            # Express app configuration, DB config
 │   │   ├── Controllers/
-│   │   │   ├── authController.js      # Login, register, logout, me
-│   │   │   ├── taskController.js      # CRUD + assign/submit/verify
-│   │   │   ├── rewardController.js    # Balance, list, history
-│   │   │   ├── treasuryController.js  # Balance, deposit, withdraw, yield
-│   │   │   └── agentController.js     # List, get, register, execute
+│   │   │   ├── authController.js          # Login, register, logout, me
+│   │   │   ├── taskController.js          # CRUD + assign/submit/verify
+│   │   │   ├── rewardController.js        # Balance, list, history
+│   │   │   ├── treasuryController.js      # Balance, deposit, withdraw, yield
+│   │   │   ├── agentController.js         # List, get, register, execute
+│   │   │   ├── notificationController.js  # Notifications
+│   │   │   ├── marketplaceController.js   # Marketplace
+│   │   │   └── adminEnvController.js      # Admin env/config helpers
 │   │   ├── Middleware/
 │   │   │   ├── auth.js           # JWT verification, requireRole
 │   │   │   ├── security.js       # Helmet, CORS, rate limiting, logging
@@ -190,8 +198,12 @@ UBI-CMS/
 │       │   │       ├── analytics/page.tsx
 │       │   │       ├── users/page.tsx    # Admin: user management
 │       │   │       ├── monitoring/page.tsx # System monitoring
+│       │   │       ├── system/architecture/page.tsx  # Interactive system map (React Flow)
+│       │   │       ├── system/workflows/page.tsx     # Same map; Temporal triggers + workflow types
 │       │   │       └── god/page.tsx      # Admin: god mode control panel
+│       │   ├── api/architecture/         # Save wiring / apply scripts (server env gated)
 │       │   ├── components/
+│       │   │   ├── system-architecture/  # Canvas, nodes, baseline data
 │       │   │   └── dashboard/
 │       │   │       └── stat-card.tsx     # Reusable KPI card component
 │       │   └── lib/
@@ -203,6 +215,7 @@ UBI-CMS/
 │       └── Dockerfile
 │
 ├── migrations/                   # PostgreSQL migration SQL files
+├── generated/                    # Tooling outputs (e.g. architecture wiring — see generated/architecture/README.md)
 ├── nginx/                        # Nginx reverse proxy config
 ├── docs/                         # This documentation
 ├── .github/workflows/            # CI/CD pipeline
@@ -420,6 +433,7 @@ npx jest src/__tests__/agents.test.js
 | `ubi.test.js` | UBI service: claim, balance, history |
 | `middleware.test.js` | Auth and security middleware |
 | `health.test.js` | Health and readiness endpoints |
+| `migrate-splitSql.test.js` | Migration script SQL splitting (utility) |
 
 ### Coverage Thresholds
 
@@ -519,24 +533,23 @@ export const DEMO_MY_DATA: MyData[] = [
 
 ### Demo User in the Database
 
-If you want the "Try Demo" button to work against a real backend, create the demo user:
+The dev stack seeds **`demo` / `Demo@Platform1`** via `api/dev-seed.sql` (hash is kept in sync with `frontend/portal-ui/src/lib/demo.ts`). Linked demo data (treasury, rewards, tasks, agents, marketplace installs) is applied in **`api/dev-patch.sql`**.
+
+To create the demo user manually:
 
 ```sql
--- Password: Demo@Platform1 (bcrypt hashed)
+-- Password: Demo@Platform1 (bcrypt, 12 rounds — same as dev-seed)
 INSERT INTO users (username, email, password_hash, roles, status)
 VALUES (
   'demo',
-  'demo@ubi-platform.com',
-  '$2b$10$REPLACE_WITH_BCRYPT_HASH',
-  ARRAY['user'],
+  'demo@ubi-cms.dev',
+  '$2b$12$xB3eGveGduf3IuIgZdP6pupTWF3KJbzMA3VzgJ5JeYsddNXEE4rhm',
+  ARRAY['subscriber'],
   'active'
 ) ON CONFLICT (username) DO NOTHING;
 ```
 
-Generate the correct hash:
-```bash
-node -e "const bcrypt=require('bcrypt'); bcrypt.hash('Demo@Platform1', 10).then(console.log)"
-```
+Then run **`psql -f api/dev-patch.sql`** (or the full init order) to attach treasury, rewards, assignments, and executions.
 
 ---
 
@@ -572,29 +585,19 @@ Checklist for adding a complete screen:
 
 ## CI/CD Pipeline
 
-The GitHub Actions pipeline (`.github/workflows/ci.yml`) runs on every push and pull request:
+The GitHub Actions workflow **`.github/workflows/ci.yml`** runs on pushes and pull requests to `main`, `master`, and `develop`. It uses **Node.js 20** (`NODE_VERSION` in the workflow).
 
-### Pipeline Stages
+### Jobs (actual workflow)
 
-```
-Push / PR
-    │
-    ├─ 1. test-api         (Node.js 18 + PostgreSQL 15 + Redis 7)
-    │      ├── npm install
-    │      ├── npm test
-    │      └── coverage report
-    │
-    ├─ 2. lint-frontend     (runs in parallel with test-api)
-    │      ├── npm install
-    │      ├── npx tsc --noEmit
-    │      └── npm run lint
-    │
-    ├─ 3. build-api         (depends on: test-api)
-    │      └── docker build api/
-    │
-    └─ 4. build-frontend    (depends on: lint-frontend)
-           └── docker build frontend/portal-ui/
-```
+| Job | Purpose |
+|-----|---------|
+| **api-test** | `npm ci` + `npm run test:ci` in `api/` (with coverage artifact upload) |
+| **portal-build** | `npm ci`, `npm run type-check`, `npm run lint`, `npm run build` in `frontend/portal-ui/` |
+| **secret-scan** | Gitleaks on the repository |
+| **contracts-validate** | `npm ci` + `npm run validate` in `shared/contracts/` |
+| **docker-build** | Builds API and Portal Docker images (runs only on `main` / `master`, after the jobs above succeed) |
+
+> **Note:** Multi-service image push to GHCR is a separate workflow — **`.github/workflows/build.yml`** (matrix of `services/*` images).
 
 ### Running CI Locally
 

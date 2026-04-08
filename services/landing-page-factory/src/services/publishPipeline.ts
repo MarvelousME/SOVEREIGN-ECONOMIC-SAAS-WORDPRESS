@@ -1,6 +1,6 @@
 import { Pool } from 'pg';
 import { LandingPageModel, PublishTargetModel } from '../models/landing-page.model';
-import { PublishTarget, PublishTargetType, PageBlock } from '../types';
+import { PublishTarget, PublishTargetType, PageBlock, PageStatus } from '../types';
 import { config } from '../config';
 import { logger } from '../config/logger';
 import { eventPublisher } from '../utils/event-publisher';
@@ -216,7 +216,7 @@ export class PublishPipelineService {
       }
     }
 
-    await this.pageModel.updateStatus(tenantId, pageId, 'approved');
+    await this.pageModel.updateStatus(tenantId, pageId, PageStatus.DRAFT);
 
     logger.info('Unpublished page', { pageId });
   }

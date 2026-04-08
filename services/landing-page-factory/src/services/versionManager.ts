@@ -1,6 +1,6 @@
 import { Pool } from 'pg';
-import { LandingPageModel, PageVersion } from '../models/landing-page.model';
-import { PageBlock, PageMetadata, PageDiff } from '../types';
+import { LandingPageModel } from '../models/landing-page.model';
+import { PageBlock, PageMetadata, PageDiff, PageVersion } from '../types';
 import { logger } from '../config/logger';
 import { eventPublisher } from '../utils/event-publisher';
 
@@ -120,8 +120,8 @@ export class VersionManagerService {
   }
 
   async compareVersions(versionA: PageVersion, versionB: PageVersion): Promise<PageDiff> {
-    const blocksA = new Map(versionA.blocks.map((b) => [b.id, b]));
-    const blocksB = new Map(versionB.blocks.map((b) => [b.id, b]));
+    const blocksA = new Map(versionA.blocks.map((b: PageBlock) => [b.id, b]));
+    const blocksB = new Map(versionB.blocks.map((b: PageBlock) => [b.id, b]));
 
     const added: PageBlock[] = [];
     const removed: PageBlock[] = [];
@@ -170,13 +170,14 @@ export class VersionManagerService {
     after: PageBlock['content']
   ): Partial<PageBlock['content']> {
     const changes: Partial<PageBlock['content']> = {};
+    const beforeRec = before as Record<string, unknown>;
 
     for (const key of Object.keys(after) as (keyof PageBlock['content'])[]) {
-      const valueBefore = before[key];
+      const valueBefore = beforeRec[key as string];
       const valueAfter = after[key];
 
       if (JSON.stringify(valueBefore) !== JSON.stringify(valueAfter)) {
-        (changes as Record<string, unknown>)[key] = {
+        (changes as Record<string, unknown>)[key as string] = {
           before: valueBefore,
           after: valueAfter,
         };

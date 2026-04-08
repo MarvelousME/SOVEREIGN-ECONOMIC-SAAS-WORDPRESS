@@ -23,6 +23,8 @@ export class TemporalClient {
   async startUBIDistribution(input: {
     distributionId: string;
     dryRun?: boolean;
+    tenantId?: string;
+    poolId?: string;
   }) {
     if (!this.client) throw new Error('Client not connected');
 

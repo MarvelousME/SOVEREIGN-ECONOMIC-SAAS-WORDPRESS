@@ -2,6 +2,8 @@
 
 Business-in-a-Box service for instant SaaS creation with AI-powered branding and automated funnel building.
 
+**Treasury:** Every provisioned workspace row includes `settings.treasury` pointing at the **platform main vault** (`MAIN_TREASURY_PLATFORM_TENANT_ID` / `MAIN_TREASURY_VAULT_ID`, default `1` / `1`). See `src/constants/treasury.ts` and `migrations/022_tenant_workspace_main_treasury.sql`.
+
 ## Features
 
 ### Core Functionality

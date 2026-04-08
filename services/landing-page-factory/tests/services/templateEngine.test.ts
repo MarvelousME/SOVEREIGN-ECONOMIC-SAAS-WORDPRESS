@@ -55,7 +55,7 @@ describe('TemplateEngineService', () => {
           { name: 'headline', type: 'string' as const, required: true },
         ],
         isPublic: false,
-        isA/BTestable: true,
+        isAbTestable: true,
       };
 
       const template = await service.createTemplate(templateData);

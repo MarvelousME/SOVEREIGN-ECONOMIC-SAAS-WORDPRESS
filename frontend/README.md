@@ -147,6 +147,14 @@ frontend/
   - Profile management
   - Notification preferences
   - Security settings
+
+- **Admin — Architecture** (`/dashboard/system/architecture`, roles: admin / developer)
+  - Interactive **React Flow** service map (drag nodes, palette, proposed edges)
+  - **Save to repo** and optional debounced **Live save** → `generated/architecture/outputs/` (see repo `generated/architecture/README.md`)
+  - **Apply & rebuild** when `ARCHITECTURE_ALLOW_APPLY=true` on the Next.js server
+
+- **Admin — Workflows** (`/dashboard/system/workflows`, roles: admin / developer)
+  - Same canvas with baseline **Temporal triggers** and **workflow type** nodes (`workflows/src/workflows/`); documentation-only — does not execute Temporal
   - Theme selection
 
 - **Notifications** (`/notifications`)

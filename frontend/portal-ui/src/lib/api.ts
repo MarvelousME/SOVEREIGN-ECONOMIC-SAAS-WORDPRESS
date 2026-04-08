@@ -204,6 +204,36 @@ export interface LandingPage {
   updated_at: string;
 }
 
+export interface CampaignBusiness {
+  id: string;
+  userId: string;
+  tenantId?: string;
+  name: string;
+  description?: string;
+  status: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface PageTemplateSummary {
+  id: string;
+  tenantId?: string;
+  createdBy?: string;
+  name: string;
+  description?: string;
+  category: string;
+  isPublic: boolean;
+  isAbTestable: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface OffsetPagination {
+  total: number;
+  limit: number;
+  offset: number;
+}
+
 export interface PageVersion {
   id: number;
   page_id: number;
@@ -234,7 +264,8 @@ class ApiClient {
     method: string,
     path: string,
     body?: unknown,
-    authenticated = true
+    authenticated = true,
+    options?: { signal?: AbortSignal }
   ): Promise<T> {
     const headers: Record<string, string> = {
       'Content-Type': 'application/json',
@@ -251,6 +282,7 @@ class ApiClient {
       method,
       headers,
       body: body ? JSON.stringify(body) : undefined,
+      signal: options?.signal,
     });
 
     if (response.status === 401) {
@@ -547,8 +579,34 @@ class ApiClient {
   }
 
   // ── Pages ────────────────────────────────────────────────────────
-  async getPages(): Promise<PaginatedResponse<LandingPage>> {
-    return this.request<PaginatedResponse<LandingPage>>('GET', '/pages');
+  async getPages(
+    scope: 'own' | 'workspace' = 'workspace',
+    page = 1,
+    limit = 20,
+    search = '',
+    options?: { signal?: AbortSignal }
+  ): Promise<{ data: LandingPage[]; pagination: OffsetPagination }> {
+    const q = encodeURIComponent(scope);
+    const searchQuery = search.trim() ? `&search=${encodeURIComponent(search.trim())}` : '';
+    const response = await this.request<{
+      data?: {
+        pages?: LandingPage[];
+      };
+      pagination?: {
+        total?: number;
+        limit?: number;
+        offset?: number;
+      };
+    }>('GET', `/pages?scope=${q}&page=${page}&limit=${limit}${searchQuery}`, undefined, true, options);
+    const safeLimit = Number(response.pagination?.limit ?? limit);
+    return {
+      data: response.data?.pages || [],
+      pagination: {
+        total: Number(response.pagination?.total || 0),
+        limit: safeLimit,
+        offset: Number(response.pagination?.offset || (page - 1) * safeLimit),
+      },
+    };
   }
 
   async getPage(id: number): Promise<LandingPage> {
@@ -581,6 +639,43 @@ class ApiClient {
 
   async generatePage(url: string): Promise<LandingPage> {
     return this.request<LandingPage>('POST', '/pages/generate', { url });
+  }
+
+  async getPageTemplates(
+    scope: 'own' | 'workspace' = 'workspace',
+    includePrivate = true,
+    limit = 20,
+    offset = 0,
+    category = '',
+    options?: { signal?: AbortSignal }
+  ): Promise<{ data: PageTemplateSummary[]; pagination: OffsetPagination }> {
+    const categoryQuery = category ? `&category=${encodeURIComponent(category)}` : '';
+    const q = `scope=${encodeURIComponent(scope)}&includePrivate=${includePrivate ? 'true' : 'false'}&limit=${limit}&offset=${offset}${categoryQuery}`;
+    const response = await this.request<{
+      data?: PageTemplateSummary[];
+      pagination?: {
+        total?: number;
+        limit?: number;
+        offset?: number;
+      };
+    }>('GET', `/templates?${q}`, undefined, true, options);
+    return {
+      data: response.data || [],
+      pagination: {
+        total: Number(response.pagination?.total || 0),
+        limit: Number(response.pagination?.limit || limit),
+        offset: Number(response.pagination?.offset || offset),
+      },
+    };
+  }
+
+  async getCampaigns(
+    scope: 'own' | 'workspace' = 'own',
+    limit = 50,
+    offset = 0
+  ): Promise<{ data: CampaignBusiness[]; pagination: { limit: number; offset: number; total: number } }> {
+    const q = `scope=${encodeURIComponent(scope)}&limit=${limit}&offset=${offset}`;
+    return this.request('GET', `/business?${q}`);
   }
 
   /**

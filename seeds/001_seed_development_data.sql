@@ -235,10 +235,10 @@ SELECT setval('agents_id_seq', 2, true);
 -- ============================================
 \echo 'Seeding notifications...'
 
-INSERT INTO notifications (user_id, tenant_id, notification_type, priority, title, message, read) VALUES
-(2, 1, 'task', 'medium', 'New Task Available', 'A new task matching your skills is available', false),
-(2, 1, 'reward', 'high', 'UBI Payment Received', 'You received $500 UBI payment', true),
-(3, 1, 'governance', 'medium', 'New Proposal', 'Vote on the new UBI increase proposal', false);
+INSERT INTO notifications (user_id, tenant_id, notification_type, priority, title, message, read, read_at) VALUES
+(2, 1, 'task', 'medium', 'New Task Available', 'A new task matching your skills is available', false, NULL),
+(2, 1, 'reward', 'high', 'UBI Payment Received', 'You received $500 UBI payment', true, NOW()),
+(3, 1, 'governance', 'medium', 'New Proposal', 'Vote on the new UBI increase proposal', false, NULL);
 
 -- Re-enable Row Level Security
 SET session_replication_role = DEFAULT;

@@ -21,6 +21,7 @@ export const CANONICAL_EVENT_TYPES = [
   'agent.run_failed',
   'policy.action_blocked',
   'audit.event_recorded',
+  'social.post_published',
 ] as const;
 
 export type CanonicalEventType = typeof CANONICAL_EVENT_TYPES[number];

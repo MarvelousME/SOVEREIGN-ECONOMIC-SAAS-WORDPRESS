@@ -1,6 +1,8 @@
+import axios from 'axios';
 import { v4 as uuidv4 } from 'uuid';
 import database from '../utils/database';
 import logger from '../utils/logger';
+import config from '../config';
 import {
   Agent,
   AgentStatus,
@@ -310,6 +312,8 @@ export class AgentService {
     const result = await database.query(query, [agentId]);
 
     if (result.rows.length === 0) {
+      const resourceUsage = await this.getResourceUsage(agentId, period);
+      const totalRevenue = await this.getAgentRevenue(agentId, period);
       return {
         agentId,
         period,
@@ -319,16 +323,14 @@ export class AgentService {
         avgExecutionTimeMs: 0,
         totalTokensUsed: 0,
         totalCost: 0,
-        totalRevenue: 0,
-        resourceUsage: {
-          avgCpuPercent: 0,
-          avgMemoryMB: 0,
-          avgStorageMB: 0,
-        },
+        totalRevenue,
+        resourceUsage,
       };
     }
 
     const row = result.rows[0];
+    const resourceUsage = await this.getResourceUsage(agentId, period);
+    const totalRevenue = await this.getAgentRevenue(agentId, period);
     return {
       agentId,
       period,
@@ -338,13 +340,22 @@ export class AgentService {
       avgExecutionTimeMs: parseFloat(row.avg_execution_time_ms) || 0,
       totalTokensUsed: parseInt(row.total_tokens_used, 10) || 0,
       totalCost: parseFloat(row.total_cost) || 0,
-      totalRevenue: 0, // TODO: Implement revenue tracking
-      resourceUsage: {
-        avgCpuPercent: 0, // TODO: Implement resource tracking
-        avgMemoryMB: 0,
-        avgStorageMB: 0,
-      },
+      totalRevenue,
+      resourceUsage,
     };
+  }
+
+  private async getAgentRevenue(agentId: string, period: string): Promise<number> {
+    try {
+      const response = await axios.get<{ revenue: number }>(
+        `${config.ledger.url}/api/v1/agents/${agentId}/revenue`,
+        { params: { period } }
+      );
+      return response.data.revenue || 0;
+    } catch (error) {
+      logger.warn('Failed to fetch agent revenue from ledger service', { agentId, period, error });
+      return 0;
+    }
   }
 
   private mapRowToAgent(row: any): Agent {
@@ -367,6 +378,68 @@ export class AgentService {
       totalRevenue: row.total_revenue,
       marketplaceListingId: row.marketplace_listing_id,
     };
+  }
+
+  private async getResourceUsage(agentId: string, period: string): Promise<{ avgCpuPercent: number; avgMemoryMB: number; avgStorageMB: number }> {
+    const defaultResult = { avgCpuPercent: 0, avgMemoryMB: 0, avgStorageMB: 0 };
+
+    try {
+      const response = await fetch('http://localhost:9090/metrics', { signal: AbortSignal.timeout(5000) });
+      if (response.ok) {
+        const text = await response.text();
+        const lines = text.split('\n');
+        let cpuSum = 0;
+        let memorySum = 0;
+        let count = 0;
+
+        for (const line of lines) {
+          if (line.startsWith('container_cpu_usage_seconds_total{agent_id="' + agentId + '"')) {
+            const match = line.match(/(\d+\.?\d*)$/);
+            if (match) cpuSum += parseFloat(match[1]);
+            count++;
+          }
+          if (line.startsWith('container_memory_usage_bytes{agent_id="' + agentId + '"')) {
+            const match = line.match(/(\d+\.?\d*)$/);
+            if (match) memorySum += parseFloat(match[1]) / (1024 * 1024);
+          }
+        }
+
+        if (count > 0) {
+          return {
+            avgCpuPercent: Math.min(100, (cpuSum / count) * 100),
+            avgMemoryMB: Math.round(memorySum),
+            avgStorageMB: 0,
+          };
+        }
+      }
+    } catch {}
+
+    try {
+      const fs = await import('fs');
+      const stat = fs.readFileSync('/proc/stat', 'utf8');
+      const cpuLine = stat.split('\n').find(l => l.startsWith('cpu '));
+      if (cpuLine) {
+        const fields = cpuLine.split(/\s+/).slice(1).map(Number);
+        const total = fields.reduce((a, b) => a + b, 0);
+        const idle = fields[3] || 0;
+        const avgCpuPercent = Math.round(((total - idle) / total) * 100);
+        return { avgCpuPercent, avgMemoryMB: 0, avgStorageMB: 0 };
+      }
+    } catch {}
+
+    try {
+      const runnerResponse = await fetch('http://localhost:8080/api/agents/' + agentId + '/stats', { signal: AbortSignal.timeout(5000) });
+      if (runnerResponse.ok) {
+        const stats = await runnerResponse.json();
+        return {
+          avgCpuPercent: stats.avgCpuPercent || 0,
+          avgMemoryMB: stats.avgMemoryMB || 0,
+          avgStorageMB: stats.avgStorageMB || 0,
+        };
+      }
+    } catch {}
+
+    return defaultResult;
   }
 }
 

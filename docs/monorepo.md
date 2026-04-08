@@ -11,8 +11,8 @@ Operational checklist and improvement backlog for this repository’s **multi-pa
 |------|--------|
 | Root workspaces | None (`package.json` is orchestration helpers) |
 | Lockfiles | Per package (`api`, `portal-ui`, each `services/*`) |
-| CI (Node) | `.github/workflows/ci.yml` — API tests + Portal build/lint/type-check |
-| Container builds | `.github/workflows/build.yml` — matrix per service |
+| CI (Node) | `.github/workflows/ci.yml` — Node **20**: API tests, Portal type-check/lint/build, Gitleaks, `shared/contracts` validation; Docker build of API + Portal on **main/master** only |
+| Container builds | `.github/workflows/build.yml` — matrix of many `services/*` images (+ migrations image) pushed to GHCR |
 
 ---
 
@@ -67,3 +67,6 @@ cd services/agent-runner && npm ci && npm test   # if test script exists
 - [ADR 0001 — Monorepo repository layout](./adr/0001-monorepo-repository-layout.md)
 - [Architecture decisions](./architecture-decisions.md)
 - [Developer guide](./developer-guide.md)
+- [System architecture (Mermaid) + interactive map](./architecture.md#interactive-system-map-portal-ui)
+- [Generated architecture outputs](../generated/architecture/README.md) (Portal save / Live save targets)
+- [IAM ↔ WordPress tenant mapping](./integration/tenant-id-mapping.md) · [Payouts flow status](./integration/payouts-flow.md)

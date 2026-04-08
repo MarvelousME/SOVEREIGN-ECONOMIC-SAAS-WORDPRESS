@@ -6,7 +6,7 @@ import Link from 'next/link';
 import {
   LayoutDashboard, Users, BarChart3, Activity, Bot,
   Coins, ClipboardList, Wallet, Gift, ShieldAlert,
-  ChevronLeft, Menu, Store, Bell, UserRound, FileCode2,
+  ChevronLeft, Menu, Store, Bell, UserRound, FileCode2, Network, GitBranch, Share2, UserPlus, Layers3, Briefcase,
 } from 'lucide-react';
 import type { User } from '@/lib/api';
 import { getStoredUser, isAuthenticated, clearAuth, clearAuthCookie } from '@/lib/auth';
@@ -39,12 +39,18 @@ const NAV_GROUPS_BASE: { label: string; items: NavItem[] }[] = [
       { href: '/dashboard/rewards', label: 'Rewards', icon: Gift },
       { href: '/dashboard/agents', label: 'Agents', icon: Bot },
       { href: '/dashboard/marketplace', label: 'Marketplace', icon: Store },
+      { href: '/dashboard/templates', label: 'Templates', icon: Layers3 },
+      { href: '/dashboard/campaigns', label: 'Campaigns', icon: Briefcase },
+      { href: '/dashboard/social-distribution', label: 'Social Distribution', icon: Share2, roles: ['admin', 'developer'] },
+      { href: '/dashboard/workspace-team', label: 'Workspace Team', icon: UserPlus, roles: ['admin', 'developer'] },
     ],
   },
   {
     label: 'Admin',
     items: [
       { href: '/dashboard/users', label: 'Users', icon: Users, roles: ['admin'] },
+      { href: '/dashboard/system/architecture', label: 'Architecture', icon: Network, roles: ['admin', 'developer'] },
+      { href: '/dashboard/system/workflows', label: 'Workflows', icon: GitBranch, roles: ['admin', 'developer'] },
       { href: '/dashboard/env-files', label: 'Env files', icon: FileCode2, roles: ['admin'] },
       { href: '/dashboard/god', label: 'God Mode', icon: ShieldAlert, roles: ['admin'] },
     ],

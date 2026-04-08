@@ -56,7 +56,18 @@ export class BusinessService {
     return this.businessModel.findById(tenantId, id);
   }
 
-  async getUserBusinesses(tenantId: string, userId: string, limit = 50, offset = 0): Promise<Business[]> {
+  async getBusinesses(
+    tenantId: string,
+    userId: string,
+    options?: { limit?: number; offset?: number; scope?: 'own' | 'workspace' }
+  ): Promise<Business[]> {
+    const limit = options?.limit ?? 50;
+    const offset = options?.offset ?? 0;
+    const scope = options?.scope ?? 'own';
+
+    if (scope === 'workspace') {
+      return this.businessModel.findByTenant(tenantId, limit, offset);
+    }
     return this.businessModel.findByUserId(tenantId, userId, limit, offset);
   }
 

@@ -93,6 +93,8 @@ nano .env
 
 #### Development (`.env`)
 
+Typical **full dev stack** (`docker-compose.dev.yml`) values below. The **minimal local API** stack uses **`docker-compose.local.yml`** with database **`ubi_dev`** and password from that file — see [Environment variables](../environment-variables.md).
+
 ```bash
 # Database
 DB_USER=postgres

@@ -9,6 +9,7 @@ import { BusinessService } from './services/business.service';
 import { BusinessController } from './controllers/business.controller';
 import { createBusinessRoutes } from './routes/business.routes';
 import { createProvisionRoutes } from './routes/provision.routes';
+import { createWorkspaceRoutes } from './routes/workspace.routes';
 import { ProvisionService } from './services/provision.service';
 import { ProvisionController } from './controllers/provision.controller';
 import { errorHandler } from './middleware/error.middleware';
@@ -36,7 +37,7 @@ app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
 // Health check
-app.get('/health', (req, res) => {
+app.get('/health', (_req, res) => {
   res.json({ status: 'healthy', service: 'business-builder', timestamp: new Date().toISOString() });
 });
 
@@ -44,7 +45,7 @@ app.get('/health', (req, res) => {
 const db = createDatabasePool();
 
 // Test database connection
-db.query('SELECT NOW()', (err, res) => {
+db.query('SELECT NOW()', (err, _res) => {
   if (err) {
     logger.error('Database connection failed:', err);
     process.exit(1);
@@ -62,12 +63,13 @@ const provisionController = new ProvisionController(provisionService);
 // Routes (provision is internal — X-Provision-Key; business routes are tenant-scoped)
 app.use('/api/v1/provision', createProvisionRoutes(provisionController));
 app.use('/api/v1/business', createBusinessRoutes(db, businessController));
+app.use('/api/v1/workspaces', createWorkspaceRoutes(db));
 
 // Error handling
 app.use(errorHandler);
 
 // 404 handler
-app.use((req, res) => {
+app.use((_req, res) => {
   res.status(404).json({ success: false, error: 'Route not found' });
 });
 

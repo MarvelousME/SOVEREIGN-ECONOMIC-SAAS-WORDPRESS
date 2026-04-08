@@ -59,6 +59,142 @@ export enum RiskLevel {
   CRITICAL = 'critical'
 }
 
+export enum AgentStatus {
+  DRAFT = 'draft',
+  DEPLOYED = 'deployed',
+  PAUSED = 'paused',
+  STOPPED = 'stopped',
+  FAILED = 'failed'
+}
+
+export enum AgentType {
+  TRADING = 'trading',
+  ANALYTICS = 'analytics',
+  AUTOMATION = 'automation',
+  CUSTOM = 'custom'
+}
+
+export enum DeploymentStrategy {
+  DIRECT = 'direct',
+  CANARY = 'canary',
+  BLUE_GREEN = 'blue_green',
+  ROLLING = 'rolling'
+}
+
+export interface Agent {
+  id: string;
+  userId: string;
+  name: string;
+  description?: string;
+  type: AgentType;
+  status: AgentStatus;
+  version: string;
+  config: AgentConfig;
+  createdAt: Date;
+  updatedAt: Date;
+  deployedAt?: Date;
+  lastExecutedAt?: Date;
+  executionCount: number;
+  totalTokensUsed: number;
+  totalCost: number;
+  totalRevenue: number;
+  marketplaceListingId?: string;
+}
+
+export interface AgentConfig {
+  name: string;
+  type: AgentType;
+  code: string;
+  triggers: string[];
+  permissions: string[];
+  resourceLimits: ResourceLimits;
+  version: string;
+  environment: Record<string, string>;
+  dependencies: string[];
+  memoryConfig: MemoryConfig;
+}
+
+export interface ResourceLimits {
+  maxCpuCores?: number;
+  maxMemoryMB?: number;
+  maxStorageMB?: number;
+  maxApiCallsPerMinute?: number;
+  maxTokensPerDay?: number;
+  maxCostPerDay?: number;
+}
+
+export interface MemoryConfig {
+  enableShortTerm?: boolean;
+  enableLongTerm?: boolean;
+  enableEpisodic?: boolean;
+  vectorDimension?: number;
+}
+
+export interface DeploymentConfig {
+  strategy: DeploymentStrategy;
+  canaryPercent?: number;
+  rollbackOnFailure?: boolean;
+}
+
+export interface AgentMetrics {
+  agentId: string;
+  period: string;
+  executionCount: number;
+  successCount: number;
+  failureCount: number;
+  avgExecutionTimeMs: number;
+  totalTokensUsed: number;
+  totalCost: number;
+  totalRevenue: number;
+  resourceUsage: ResourceUsage;
+}
+
+export interface ResourceUsage {
+  avgCpuPercent: number;
+  avgMemoryMB: number;
+  avgStorageMB: number;
+}
+
+export interface ExecutionLog {
+  id: string;
+  agentId: string;
+  startedAt: Date;
+  completedAt?: Date;
+  status: string;
+  input: Record<string, unknown>;
+  output?: Record<string, unknown>;
+  error?: string;
+  tokensUsed: number;
+  cost: number;
+  executionTimeMs: number;
+}
+
+export interface CreateAgentRequest {
+  name: string;
+  description?: string;
+  type: AgentType;
+  code: string;
+  triggers?: string[];
+  permissions?: string[];
+  resourceLimits?: ResourceLimits;
+  version?: string;
+  environment?: Record<string, string>;
+  dependencies?: string[];
+  memoryConfig?: MemoryConfig;
+}
+
+export interface UpdateAgentRequest {
+  name?: string;
+  description?: string;
+  code?: string;
+  triggers?: string[];
+  permissions?: string[];
+  resourceLimits?: ResourceLimits;
+  environment?: Record<string, string>;
+  dependencies?: string[];
+  memoryConfig?: MemoryConfig;
+}
+
 export interface ContextPackage {
   tenant_id: string;
   workspace_id: string;
@@ -476,6 +612,13 @@ export const RollbackRequestSchema = z.object({
 
 export type RollbackRequest = z.infer<typeof RollbackRequestSchema>;
 
+export interface RevenueMetrics {
+  totalRevenue: number;
+  period: string;
+  currency?: string;
+  breakdown?: Record<string, number>;
+}
+
 export interface MissionResponse {
   mission: AgentMission;
   tasks?: AgentTask[];
@@ -487,4 +630,19 @@ export interface PlanResponse {
   action_plan: ActionPlan;
   policy_check: PolicyEvaluationResult;
   dry_run_eligible: boolean;
+}
+
+export interface RevenueMetrics {
+  totalRevenue: number;
+  period: string;
+  currency?: string;
+  breakdown?: Record<string, number>;
+}
+
+export interface ResourceUsage {
+  avgCpuPercent: number;
+  avgMemoryMB: number;
+  avgStorageMB: number;
+  peakCpuPercent?: number;
+  peakMemoryMB?: number;
 }

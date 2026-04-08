@@ -8,24 +8,34 @@ services:
     ports:
       - "80:80"
       - "443:443"
+      - "8082:8082"  # Prometheus metrics (traefik entrypoint metrics)
     volumes:
       - ./docker/configs/traefik:/etc/traefik:ro
       - ./docker/certs:/certs
+      # Docker engine or Podman API (Docker-compatible). Override for Podman, e.g. /run/podman/podman.sock
+      - ${TRAEFIK_PLATFORM_SOCKET:-/var/run/docker.sock}:/var/run/docker.sock:ro
     networks:
       - ubi-network
     secrets:
       - letsencrypt_email
     environment:
       - LETSENCRYPT_EMAIL_FILE=/run/secrets/letsencrypt_email
+      # Override when your OTLP collector uses another host/port (see docker/configs/traefik/traefik.yml tracing)
+      - TRAEFIK_TRACING_OTLP_HTTP_ENDPOINT=${TRAEFIK_TRACING_OTLP_HTTP_ENDPOINT:-http://otel-collector:4318/v1/traces}
     command:
       - "--providers.docker=true"
+      - "--providers.docker.endpoint=unix:///var/run/docker.sock"
+      - "--providers.docker.allowEmptyServices=true"
       - "--providers.docker.exposedbydefault=false"
       - "--entrypoints.web.address=:80"
       - "--entrypoints.websecure.address=:443"
       - "--certificatesresolvers.letsencrypt.acme.storage=/certs/acme.json"
       - "--certificatesresolvers.letsencrypt.acme.httpchallenge.entrypoint=web"
       - "--accesslog=true"
+      - "--accesslog.format=json"
+      - "--entrypoints.metrics.address=:8082"
       - "--metrics.prometheus=true"
+      - "--metrics.prometheus.entrypoint=metrics"
     restart: always
     depends_on:
       - keycloak

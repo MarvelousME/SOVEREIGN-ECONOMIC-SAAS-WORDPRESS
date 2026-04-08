@@ -26,8 +26,8 @@ services:
       - "8082:8082"
     
     volumes:
-      # Podman API socket (Docker-compatible) for service discovery; override with PODMAN_SOCK if needed
-      - ${PODMAN_SOCK:-/run/podman/podman.sock}:/var/run/docker.sock:ro
+      # Docker engine or Podman (Docker-compatible API). Default suits Docker; set TRAEFIK_PLATFORM_SOCKET for Podman.
+      - ${TRAEFIK_PLATFORM_SOCKET:-/var/run/docker.sock}:/var/run/docker.sock:ro
       
       # Configuration files
       - ./traefik.yml:/etc/traefik/traefik.yml:ro
@@ -38,9 +38,6 @@ services:
       
       # ACME storage for Let's Encrypt
       - ./certs/acme.json:/etc/traefik/acme.json
-      
-      # Logs
-      - traefik-logs:/var/log/traefik
     
     environment:
       - TZ=Africa/Johannesburg
@@ -111,6 +108,3 @@ networks:
     name: ubi-cms-network
     driver: bridge
 
-volumes:
-  traefik-logs:
-    name: ubi-cms-traefik-logs

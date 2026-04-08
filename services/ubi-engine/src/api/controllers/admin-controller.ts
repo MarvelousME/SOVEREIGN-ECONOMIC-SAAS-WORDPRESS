@@ -1,8 +1,6 @@
 import { Request, Response } from 'express';
 import { db } from '../../database';
 import { logger } from '../../utils/logger';
-import { distributionCalculator } from '../../engine/distribution-calculator';
-import { eventPublisher } from '../../events/event-publisher';
 import { v4 as uuidv4 } from 'uuid';
 import { Client } from '@temporalio/client';
 import { config } from '../../config';
@@ -79,14 +77,26 @@ export class AdminController {
    */
   async triggerDistribution(req: Request, res: Response): Promise<void> {
     try {
-      const { poolId, tenantId } = req.body;
+      const { poolId, tenantId, dryRun } = req.body;
 
       if (!poolId || !tenantId) {
         res.status(400).json({ error: 'poolId and tenantId are required' });
         return;
       }
 
-      // Schedule distribution via Temporal
+      const pools = await db.query<{ id: string }>(
+        'SELECT id FROM ubi_pools WHERE id = $1 AND tenant_id = $2',
+        [poolId, tenantId]
+      );
+
+      if (pools.length === 0) {
+        res.status(404).json({ error: 'Pool not found for tenant' });
+        return;
+      }
+
+      const distributionId = uuidv4();
+
+      // Schedule distribution via Temporal (worker: @ubi-cms/workflows, ubiDistributionWorkflow)
       const client = new Client({
         connection: {
           address: config.temporal.address,
@@ -94,25 +104,30 @@ export class AdminController {
         namespace: config.temporal.namespace,
       });
 
-      const handle = await client.workflow.start('dailyDistributionWorkflow', {
+      const handle = await client.workflow.start('ubiDistributionWorkflow', {
         taskQueue: config.temporal.taskQueue,
-        args: [{
-          poolId,
-          tenantId,
-          distributionDate: new Date()
-        }],
-        workflowId: `distribution-${poolId}-${Date.now()}`,
+        args: [
+          {
+            distributionId,
+            dryRun: dryRun === true,
+            tenantId,
+            poolId,
+          },
+        ],
+        workflowId: `distribution-${distributionId}`,
       });
 
-      logger.info('Distribution workflow started', { 
+      logger.info('Distribution workflow started', {
         workflowId: handle.workflowId,
-        poolId 
+        poolId,
+        distributionId,
       });
 
       res.json({
         success: true,
         workflowId: handle.workflowId,
-        message: 'Distribution triggered successfully'
+        distributionId,
+        message: 'Distribution triggered successfully',
       });
     } catch (error) {
       logger.error('Error triggering distribution', { error });

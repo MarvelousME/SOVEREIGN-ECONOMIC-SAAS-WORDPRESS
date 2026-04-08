@@ -48,6 +48,23 @@ export function createLandingPageRoutes(db: Pool, controller: LandingPageControl
 export function createTemplateRoutes(controller: LandingPageController): Router {
   const router = Router();
 
+  router.use((req: Request, res: Response, next: NextFunction) => {
+    const tenantId = req.headers['x-tenant-id'] as string;
+    const userId = req.headers['x-user-id'] as string;
+
+    if (!tenantId || !userId) {
+      res.status(401).json({
+        success: false,
+        error: 'Missing tenant or user context',
+      });
+      return;
+    }
+
+    (req.body as Record<string, unknown>).tenantId = tenantId;
+    (req.body as Record<string, unknown>).userId = userId;
+    next();
+  });
+
   router.get('/', controller.getTemplates);
 
   router.post('/', controller.createTemplate);

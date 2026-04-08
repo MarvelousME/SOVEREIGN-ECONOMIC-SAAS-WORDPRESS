@@ -16,15 +16,29 @@ export const createAccountSchema = z.object({
 
 export class AccountsController {
   async createAccount(req: TenantRequest, res: Response): Promise<void> {
+    // tenantId is guaranteed by tenantMiddleware before this handler runs
+    if (!req.tenantId) {
+      res.status(400).json({ error: 'Bad Request', message: 'Tenant context missing' });
+      return;
+    }
+
     try {
       const account = await ledgerService.createAccount(
-        req.tenantId!,
+        req.tenantId,
         req.body
       );
 
       res.status(201).json(account);
     } catch (error) {
       if (error instanceof Error) {
+        // Duplicate code is a conflict, not a generic bad request
+        if (error.message.includes('already exists')) {
+          res.status(409).json({
+            error: 'Conflict',
+            message: error.message
+          });
+          return;
+        }
         res.status(400).json({
           error: 'Bad Request',
           message: error.message
@@ -33,10 +47,43 @@ export class AccountsController {
     }
   }
 
+  async listAccounts(req: TenantRequest, res: Response): Promise<void> {
+    if (!req.tenantId) {
+      res.status(400).json({ error: 'Bad Request', message: 'Tenant context missing' });
+      return;
+    }
+
+    try {
+      const type = req.query.type as AccountType | undefined;
+      const limit = Math.min(parseInt(req.query.limit as string) || 100, 500);
+      const offset = parseInt(req.query.offset as string) || 0;
+
+      const accounts = await ledgerService.listAccounts(req.tenantId, { type, limit, offset });
+
+      res.json({
+        accounts,
+        limit,
+        offset
+      });
+    } catch (error) {
+      if (error instanceof Error) {
+        res.status(500).json({
+          error: 'Internal Server Error',
+          message: error.message
+        });
+      }
+    }
+  }
+
   async getAccount(req: TenantRequest, res: Response): Promise<void> {
+    if (!req.tenantId) {
+      res.status(400).json({ error: 'Bad Request', message: 'Tenant context missing' });
+      return;
+    }
+
     try {
       const account = await ledgerService.getAccount(
-        req.tenantId!,
+        req.tenantId,
         req.params.id
       );
 
@@ -60,9 +107,14 @@ export class AccountsController {
   }
 
   async getAccountBalance(req: TenantRequest, res: Response): Promise<void> {
+    if (!req.tenantId) {
+      res.status(400).json({ error: 'Bad Request', message: 'Tenant context missing' });
+      return;
+    }
+
     try {
       const balance = await ledgerService.getAccountBalance(
-        req.tenantId!,
+        req.tenantId,
         req.params.id
       );
 
@@ -85,20 +137,33 @@ export class AccountsController {
   }
 
   async getAccountStatement(req: TenantRequest, res: Response): Promise<void> {
+    if (!req.tenantId) {
+      res.status(400).json({ error: 'Bad Request', message: 'Tenant context missing' });
+      return;
+    }
+
     try {
       const startDate = new Date(req.query.start_date as string);
       const endDate = new Date(req.query.end_date as string);
 
       if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) {
-        res.status(400).json({
-          error: 'Bad Request',
-          message: 'Invalid start_date or end_date'
+        res.status(422).json({
+          error: 'Unprocessable Entity',
+          message: 'Invalid start_date or end_date. Expected ISO 8601 format.'
+        });
+        return;
+      }
+
+      if (startDate > endDate) {
+        res.status(422).json({
+          error: 'Unprocessable Entity',
+          message: 'start_date must be before end_date'
         });
         return;
       }
 
       const statement = await ledgerService.getAccountStatement(
-        req.tenantId!,
+        req.tenantId,
         req.params.id,
         startDate,
         endDate
@@ -123,12 +188,17 @@ export class AccountsController {
   }
 
   async getAccountHistory(req: TenantRequest, res: Response): Promise<void> {
+    if (!req.tenantId) {
+      res.status(400).json({ error: 'Bad Request', message: 'Tenant context missing' });
+      return;
+    }
+
     try {
-      const limit = parseInt(req.query.limit as string) || 100;
+      const limit = Math.min(parseInt(req.query.limit as string) || 100, 500);
       const offset = parseInt(req.query.offset as string) || 0;
 
       const history = await ledgerService.getAccountHistory(
-        req.tenantId!,
+        req.tenantId,
         req.params.id,
         limit,
         offset

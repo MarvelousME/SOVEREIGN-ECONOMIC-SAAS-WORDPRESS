@@ -8,8 +8,8 @@ export const validate = (schema: ZodSchema) => {
       next();
     } catch (error) {
       if (error instanceof z.ZodError) {
-        res.status(400).json({
-          error: 'Validation Error',
+        res.status(422).json({
+          error: 'Unprocessable Entity',
           details: error.errors
         });
         return;

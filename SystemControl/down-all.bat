@@ -7,7 +7,7 @@ set "REMOVE_VOLUMES="
 if /I "%~1"=="--volumes" set "REMOVE_VOLUMES=--volumes"
 
 echo [INFO] Shutting down full stack using: %COMPOSE_FILE%
-podman compose -f "%COMPOSE_FILE%" down %REMOVE_VOLUMES%
+podman compose --env-file "%ENV_FILE%" -f "%COMPOSE_FILE%" down %REMOVE_VOLUMES%
 
 if errorlevel 1 (
   echo [ERROR] Failed to shut down stack.

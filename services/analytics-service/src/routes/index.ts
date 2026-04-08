@@ -1,11 +1,12 @@
 import { Router } from 'express';
 import { analyticsController } from '../controllers/analyticsController';
-import { authMiddleware, optionalAuthMiddleware, workspaceMiddleware } from '../middleware/auth';
+import { authMiddleware, optionalAuthMiddleware, requireReportAccess, workspaceMiddleware } from '../middleware/auth';
 import { subscribeToEvents } from '../middleware/sse';
 
 const router = Router();
 
 router.post('/events', authMiddleware, workspaceMiddleware, analyticsController.ingestEvent);
+router.post('/events/ingest', optionalAuthMiddleware, workspaceMiddleware, analyticsController.ingestEvent);
 
 router.post('/events/batch', authMiddleware, workspaceMiddleware, analyticsController.ingestBatch);
 
@@ -13,29 +14,29 @@ router.get('/events', authMiddleware, workspaceMiddleware, async (req, res) => {
   res.json({ success: true, data: [] });
 });
 
-router.get('/metrics', authMiddleware, workspaceMiddleware, analyticsController.getMetrics);
+router.get('/metrics', authMiddleware, workspaceMiddleware, requireReportAccess(), analyticsController.getMetrics);
 
-router.get('/dashboard', authMiddleware, workspaceMiddleware, analyticsController.getDashboard);
+router.get('/dashboard', authMiddleware, workspaceMiddleware, requireReportAccess(), analyticsController.getDashboard);
 
-router.get('/attribution', authMiddleware, workspaceMiddleware, analyticsController.getAttribution);
+router.get('/attribution', authMiddleware, workspaceMiddleware, requireReportAccess(), analyticsController.getAttribution);
 
 router.post('/attribution/calculate/:conversionId', authMiddleware, workspaceMiddleware, analyticsController.calculateAttribution);
 
-router.get('/conversions', authMiddleware, workspaceMiddleware, analyticsController.getConversions);
+router.get('/conversions', authMiddleware, workspaceMiddleware, requireReportAccess(), analyticsController.getConversions);
 
 router.post('/conversions/track', authMiddleware, workspaceMiddleware, analyticsController.trackConversion);
 
-router.get('/funnels', authMiddleware, workspaceMiddleware, analyticsController.getConversionFunnel);
+router.get('/funnels', authMiddleware, workspaceMiddleware, requireReportAccess(), analyticsController.getConversionFunnel);
 
-router.get('/pages', authMiddleware, workspaceMiddleware, analyticsController.getPageAnalytics);
+router.get('/pages', authMiddleware, workspaceMiddleware, requireReportAccess(), analyticsController.getPageAnalytics);
 
-router.get('/leads', authMiddleware, workspaceMiddleware, analyticsController.getLeadAnalytics);
+router.get('/leads', authMiddleware, workspaceMiddleware, requireReportAccess({ requireSso: true }), analyticsController.getLeadAnalytics);
 
-router.get('/revenue', authMiddleware, workspaceMiddleware, analyticsController.getRevenueReport);
+router.get('/revenue', authMiddleware, workspaceMiddleware, requireReportAccess({ requireSso: true }), analyticsController.getRevenueReport);
 
-router.get('/agents', authMiddleware, workspaceMiddleware, analyticsController.getAgentMetrics);
+router.get('/agents', authMiddleware, workspaceMiddleware, requireReportAccess(), analyticsController.getAgentMetrics);
 
-router.get('/cohorts', authMiddleware, workspaceMiddleware, analyticsController.getCohortAnalysis);
+router.get('/cohorts', authMiddleware, workspaceMiddleware, requireReportAccess(), analyticsController.getCohortAnalysis);
 
 router.get('/experiments', authMiddleware, workspaceMiddleware, async (req, res) => {
   res.json({ success: true, data: [] });

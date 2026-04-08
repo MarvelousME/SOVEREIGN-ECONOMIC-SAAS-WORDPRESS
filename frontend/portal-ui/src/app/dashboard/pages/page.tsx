@@ -1,8 +1,10 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { api, LandingPage } from '@/lib/api';
+import { useLatestAbortController } from '@/hooks/use-latest-abort-controller';
 import { cn, formatDate, formatRelativeTime } from '@/lib/utils';
 import { 
   Plus, 
@@ -15,7 +17,8 @@ import {
   Clock,
   CheckCircle,
   Archive,
-  FileEdit
+  FileEdit,
+  RefreshCw,
 } from 'lucide-react';
 
 const statusConfig = {
@@ -36,27 +39,55 @@ function StatusBadge({ status }: { status: keyof typeof statusConfig }) {
 }
 
 export default function PagesPage() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const [scope, setScope] = useState<'own' | 'workspace'>(
+    searchParams.get('scope') === 'own' ? 'own' : 'workspace'
+  );
+  const [search, setSearch] = useState(searchParams.get('q') || '');
+  const [debouncedSearch, setDebouncedSearch] = useState(searchParams.get('q') || '');
   const [pages, setPages] = useState<LandingPage[]>([]);
+  const [page, setPage] = useState(Math.max(1, Number(searchParams.get('page') || 1)));
+  const pageSize = 10;
+  const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<number | null>(null);
+  const { nextSignal } = useLatestAbortController();
+
+  useEffect(() => {
+    const t = window.setTimeout(() => setDebouncedSearch(search), 250);
+    return () => window.clearTimeout(t);
+  }, [search]);
 
   const loadPages = useCallback(async () => {
+    const signal = nextSignal();
     setLoading(true);
     setError(null);
     try {
-      const res = await api.getPages();
+      const res = await api.getPages(scope, page, pageSize, debouncedSearch, { signal });
       setPages(res.data);
+      setTotal(res.pagination.total);
     } catch (err) {
+      if (err instanceof DOMException && err.name === 'AbortError') return;
       setError(err instanceof Error ? err.message : 'Failed to load pages');
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [scope, page, debouncedSearch, nextSignal]);
 
   useEffect(() => {
     loadPages();
   }, [loadPages]);
+
+  useEffect(() => {
+    const params = new URLSearchParams();
+    if (scope !== 'workspace') params.set('scope', scope);
+    if (debouncedSearch.trim()) params.set('q', debouncedSearch.trim());
+    if (page > 1) params.set('page', String(page));
+    const query = params.toString();
+    router.replace(query ? `?${query}` : '?');
+  }, [scope, page, debouncedSearch, router]);
 
   const handleDelete = async (id: number) => {
     if (!confirm('Delete this page? This cannot be undone.')) return;
@@ -96,7 +127,29 @@ export default function PagesPage() {
           <h1 className="text-2xl font-bold">Landing Pages</h1>
           <p className="text-sm text-muted-foreground">Manage your landing pages</p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-2 items-center">
+          <div className="inline-flex rounded-lg border border-border overflow-hidden">
+            <button
+              type="button"
+              onClick={() => {
+                setScope('own');
+                setPage(1);
+              }}
+              className={`px-3 py-2 text-xs ${scope === 'own' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:bg-muted/40'}`}
+            >
+              Own
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setScope('workspace');
+                setPage(1);
+              }}
+              className={`px-3 py-2 text-xs ${scope === 'workspace' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:bg-muted/40'}`}
+            >
+              Workspace-wide
+            </button>
+          </div>
           <Link
             href="/dashboard/pages/generator"
             className="inline-flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:opacity-90 transition-opacity"
@@ -119,6 +172,23 @@ export default function PagesPage() {
           {error}
         </div>
       )}
+      <div className="flex items-center gap-2">
+        <input
+          value={search}
+          onChange={(e) => {
+            setSearch(e.target.value);
+            setPage(1);
+          }}
+          placeholder="Search pages..."
+          className="rounded-lg border border-border bg-background px-3 py-2 text-sm"
+        />
+        {search !== debouncedSearch && (
+          <span className="text-xs text-muted-foreground inline-flex items-center gap-1">
+            <RefreshCw className="w-3 h-3 animate-spin" />
+            Searching...
+          </span>
+        )}
+      </div>
 
       {pages.length === 0 ? (
         <div className="flex flex-col items-center justify-center h-64 bg-card rounded-lg border">
@@ -203,6 +273,32 @@ export default function PagesPage() {
           ))}
         </div>
       )}
+      <div className="flex items-center justify-between text-xs text-muted-foreground">
+        <span>
+          {total === 0
+            ? 'No results'
+            : `Showing ${(page - 1) * pageSize + 1}-${Math.min(page * pageSize, total)} of ${total}`}
+        </span>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setPage((p) => Math.max(1, p - 1))}
+            disabled={page <= 1}
+            className="rounded border border-border px-2 py-1 disabled:opacity-50"
+          >
+            Prev
+          </button>
+          <span>Page {page} / {Math.max(1, Math.ceil(total / pageSize))}</span>
+          <button
+            type="button"
+            onClick={() => setPage((p) => p + 1)}
+            disabled={page * pageSize >= total}
+            className="rounded border border-border px-2 py-1 disabled:opacity-50"
+          >
+            Next
+          </button>
+        </div>
+      </div>
     </div>
   );
 }

@@ -175,6 +175,8 @@ export interface PageMetadata {
 
 export interface PageTemplate {
   id: string;
+  tenantId?: string;
+  createdBy?: string;
   name: string;
   description: string;
   category: TemplateCategory;
@@ -183,7 +185,7 @@ export interface PageTemplate {
   defaultMetadata: PageMetadata;
   variables: TemplateVariable[];
   isPublic: boolean;
-  isA/BTestable: boolean;
+  isAbTestable: boolean;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -303,6 +305,7 @@ export interface GeneratePageRequest {
   description?: string;
   businessId?: string;
   templateId?: string;
+  affiliateNetwork?: string;
   brandTone?: BrandTone;
   locale?: string;
   includeDisclosures?: boolean;
@@ -323,6 +326,8 @@ export interface RollbackRequest {
 }
 
 export interface CreateTemplateRequest {
+  tenantId?: string;
+  createdBy?: string;
   name: string;
   description: string;
   category: TemplateCategory;
@@ -331,7 +336,7 @@ export interface CreateTemplateRequest {
   defaultMetadata: PageMetadata;
   variables?: TemplateVariable[];
   isPublic?: boolean;
-  isA/BTestable?: boolean;
+  isAbTestable?: boolean;
 }
 
 export interface PageListQuery {
@@ -340,6 +345,165 @@ export interface PageListQuery {
   status?: PageStatus;
   businessId?: string;
   search?: string;
+  scope?: 'own' | 'workspace';
+  userId?: string;
+}
+
+export type CampaignStatus =
+  | 'draft'
+  | 'ready'
+  | 'scheduled'
+  | 'running'
+  | 'paused'
+  | 'completed'
+  | 'failed'
+  | 'archived';
+
+export interface CampaignOrchestration {
+  id: string;
+  tenantId: string;
+  businessId?: string;
+  pageId?: string;
+  name: string;
+  description?: string;
+  objective?: string;
+  budget?: number;
+  status: CampaignStatus;
+  startsAt?: Date;
+  endsAt?: Date;
+  metadata: Record<string, unknown>;
+  createdBy?: string;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface CampaignStateEvent {
+  id: string;
+  campaignId: string;
+  tenantId: string;
+  fromStatus: CampaignStatus;
+  toStatus: CampaignStatus;
+  reason?: string;
+  metadata: Record<string, unknown>;
+  changedBy?: string;
+  createdAt: Date;
+}
+
+export type CampaignNextAction =
+  | 'link_social_posts'
+  | 'schedule_posts'
+  | 'resume_execution'
+  | 'investigate_failures'
+  | 'archive_campaign'
+  | 'monitor_progress';
+
+export interface CampaignExecutionSummary {
+  campaignId: string;
+  status: CampaignStatus;
+  socialPostCounts: {
+    total: number;
+    queued: number;
+    scheduled: number;
+    publishing: number;
+    published: number;
+    failed: number;
+    deadLetter: number;
+    cancelled: number;
+  };
+  progressPercent: number;
+  hasFailures: boolean;
+  lastFailureReason?: string;
+  lastStatusChangeAt?: Date;
+  nextAction: CampaignNextAction;
+}
+
+export interface CampaignReportKpis {
+  totalPosts: number;
+  publishedPosts: number;
+  failedPosts: number;
+  successRate: number;
+  failureRate: number;
+  publishThroughputPerDay: number;
+}
+
+export interface CampaignReportRow {
+  campaignId: string;
+  campaignName: string;
+  campaignStatus: CampaignStatus;
+  ownerUserId?: string;
+  updatedAt: Date;
+  kpis: CampaignReportKpis;
+}
+
+export interface CampaignReportSummary {
+  dateFrom: Date;
+  dateTo: Date;
+  daysInRange: number;
+  campaignsMatched: number;
+  kpis: CampaignReportKpis;
+}
+
+export interface CampaignReportResult {
+  summary: CampaignReportSummary;
+  rows: CampaignReportRow[];
+  total: number;
+}
+
+export interface TenantBrandingConfig {
+  tenantBrandingDomain?: string;
+  tenantBrandingSubdomain?: string;
+}
+
+export interface DeploymentReadinessConfig {
+  regionTag?: string;
+  multiRegionReady?: boolean;
+  whiteLabelReady?: boolean;
+  tenantBranding?: TenantBrandingConfig;
+}
+
+export type AgentChainStageType = 'research' | 'strategy' | 'compliance';
+export type AgentChainStageStatus = 'success' | 'failed';
+
+export interface AgentChainResearchOutput {
+  audienceInsights: string[];
+  competitorSignals: string[];
+}
+
+export interface AgentChainStrategyOutput {
+  messagingPillars: string[];
+  channelPlan: string[];
+}
+
+export interface AgentChainComplianceOutput {
+  requiredDisclosures: string[];
+  policyChecks: string[];
+}
+
+export type AgentChainStageOutput =
+  | AgentChainResearchOutput
+  | AgentChainStrategyOutput
+  | AgentChainComplianceOutput;
+
+export interface AgentChainStageResult {
+  stage: AgentChainStageType;
+  status: AgentChainStageStatus;
+  output: AgentChainStageOutput;
+  startedAt: string;
+  completedAt: string;
+}
+
+export interface CampaignAgentChainRun {
+  runId: string;
+  campaignId: string;
+  tenantId: string;
+  input: {
+    goal: string;
+    channels: string[];
+    locale?: string;
+  };
+  stages: AgentChainStageResult[];
+  createdBy: string;
+  createdAt: string;
 }
 
 export interface PageVersionListQuery {

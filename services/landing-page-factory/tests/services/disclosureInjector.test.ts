@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach } from '@jest/globals';
 import { DisclosureInjectorService } from '../../src/services/disclosureInjector';
-import { BrandTone, DisclosureType } from '../../src/types';
+import { BrandTone, DisclosureType, PageBlockType } from '../../src/types';
 
 describe('DisclosureInjectorService', () => {
   let service: DisclosureInjectorService;
@@ -24,7 +24,9 @@ describe('DisclosureInjectorService', () => {
     });
 
     it('should add disclosure blocks to existing blocks', async () => {
-      const existingBlocks = [{ id: 'block-1', type: 'hero' as const, order: 0, content: {}, config: {} }];
+      const existingBlocks = [
+        { id: 'block-1', type: PageBlockType.HERO, order: 0, content: {}, config: {} },
+      ];
       
       const result = await service.injectDisclosures(
         'page-123',

@@ -226,6 +226,14 @@ export class EventIngestionService {
         enrichments.touchpointType = 'offer';
         enrichments.touchpointId = (event.data as Record<string, unknown>).offer_id;
         break;
+      case 'social.post_published':
+        enrichments.touchpointType = 'social_publish';
+        enrichments.touchpointId =
+          (event.data as Record<string, unknown>).socialPostId ||
+          (event.data as Record<string, unknown>).social_post_id ||
+          (event.data as Record<string, unknown>).postId ||
+          (event.data as Record<string, unknown>).post_id;
+        break;
       default:
         enrichments.touchpointType = event.eventType;
     }
@@ -237,6 +245,7 @@ export class EventIngestionService {
 
     if (enrichments.touchpointId) {
       await this.createTouchpoint(event, enrichments);
+      await this.createDerivedConversion(event, enrichments);
     }
   }
 
@@ -281,6 +290,54 @@ export class EventIngestionService {
       await pool.query(query, values);
     } catch (error) {
       logger.error('Failed to create touchpoint', { error, eventId: event.id });
+    }
+  }
+
+  private async createDerivedConversion(event: CanonicalEvent, enrichments: Record<string, unknown>): Promise<void> {
+    if (event.eventType !== 'social.post_published') {
+      return;
+    }
+
+    const query = `
+      INSERT INTO conversions (
+        id, tenant_id, workspace_id, visitor_id, session_id, conversion_type,
+        conversion_value, currency, revenue, cost, attributed_channel,
+        attributed_source, attributed_medium, attributed_campaign, conversion_date, created_at
+      ) VALUES (
+        $1, $2, $3, $4, $5, $6, 0, 'USD', 0, 0, $7, $8, $9, $10, $11, NOW()
+      )
+      ON CONFLICT DO NOTHING
+    `;
+
+    const data = event.data as Record<string, unknown>;
+    const visitorId =
+      (data.visitor_id as string) ||
+      (event.metadata as Record<string, unknown>).visitor_id as string ||
+      `social:${String(data.provider || 'unknown')}:${String(data.socialPostId || data.postId || event.eventId)}`;
+    const sessionId =
+      (data.session_id as string) ||
+      (event.metadata as Record<string, unknown>).session_id as string ||
+      visitorId;
+    const conversionDate = event.timestamp || new Date();
+
+    const values = [
+      uuidv4(),
+      event.tenantId,
+      event.workspaceId,
+      visitorId,
+      sessionId,
+      'social_post_published',
+      enrichments.channel || 'social',
+      enrichments.source || event.source,
+      enrichments.medium || null,
+      enrichments.campaign || null,
+      conversionDate,
+    ];
+
+    try {
+      await pool.query(query, values);
+    } catch (error) {
+      logger.error('Failed to create derived conversion', { error, eventId: event.id });
     }
   }
 

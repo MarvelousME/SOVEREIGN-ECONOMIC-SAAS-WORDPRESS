@@ -7,6 +7,16 @@ import { createDatabasePool, config } from './config';
 import { logger } from './config/logger';
 import { LandingPageController } from './controllers/landing-page.controller';
 import { createLandingPageRoutes, createTemplateRoutes } from './routes';
+import { createShareLinksRoutes } from './routes/share-links.routes';
+import { ShareLinksController } from './controllers/share-links.controller';
+import { createSocialRoutes } from './routes/social.routes';
+import { SocialModel } from './models/social.model';
+import { SocialQueueService } from './services/socialQueue';
+import { SocialController } from './controllers/social.controller';
+import { CampaignModel } from './models/campaign.model';
+import { CampaignController } from './controllers/campaign.controller';
+import { createCampaignRoutes } from './routes/campaign.routes';
+import { CampaignAgentChainService } from './services/campaignAgentChain.service';
 import { errorHandler, notFoundHandler, requestLogger } from './middleware/error.middleware';
 import { eventPublisher } from './utils/event-publisher';
 
@@ -53,15 +63,27 @@ eventPublisher.connect().catch((err) => {
 });
 
 const controller = new LandingPageController(db, config.openaiApiKey);
+const shareLinksController = new ShareLinksController();
+const socialModel = new SocialModel(db);
+const socialQueue = new SocialQueueService(db);
+const campaignModel = new CampaignModel(db);
+const socialController = new SocialController(socialModel, socialQueue, campaignModel);
+const campaignAgentChainService = new CampaignAgentChainService();
+const campaignController = new CampaignController(campaignModel, campaignAgentChainService);
+socialQueue.startWorker();
 
+app.use('/api/v1/tools', createShareLinksRoutes(shareLinksController));
 app.use('/api/v1/pages', createLandingPageRoutes(db, controller));
 app.use('/api/v1/pages/templates', createTemplateRoutes(controller));
+app.use('/api/v1/social', createSocialRoutes(socialController));
+app.use('/api/v1/campaigns', createCampaignRoutes(campaignController));
 
 app.use(notFoundHandler);
 app.use(errorHandler);
 
 const gracefulShutdown = async () => {
   logger.info('Shutting down...');
+  await socialQueue.close();
   await eventPublisher.disconnect();
   await db.end();
   process.exit(0);

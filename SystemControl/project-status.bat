@@ -19,7 +19,7 @@ if errorlevel 1 (
 echo.
 
 echo [STEP] Declared services
-podman compose -f "%COMPOSE_FILE%" config --services
+podman compose --env-file "%ENV_FILE%" -f "%COMPOSE_FILE%" config --services
 if errorlevel 1 (
   echo [ERROR] Could not read services from compose file.
   exit /b 1
@@ -27,7 +27,7 @@ if errorlevel 1 (
 echo.
 
 echo [STEP] Container status
-podman compose -f "%COMPOSE_FILE%" ps
+podman compose --env-file "%ENV_FILE%" -f "%COMPOSE_FILE%" ps
 if errorlevel 1 (
   echo [WARN] Could not query compose ps.
 )

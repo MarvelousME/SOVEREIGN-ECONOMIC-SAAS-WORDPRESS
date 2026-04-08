@@ -123,6 +123,8 @@ See [Architecture Guide](./architecture.md) for detailed diagrams and data flow.
 | [Sovereign-Engine (NovasPlace)](./integration/sovereign-engine-integration.md) | Architects / ML-ops | Optional Python agent runtime: substrate ledger/blackboard, MCP-style tools, safe boundaries vs Ledger Service |
 | [IAM bigint ↔ WordPress UUID tenant mapping](./integration/tenant-id-mapping.md) | Platform / WordPress | Links `tenants.id`, `tenant_workspaces`, and `sovereign_tenant_id` |
 | [Payouts flow & implementation status](./integration/payouts-flow.md) | Backend / treasury | Intended NATS/ledger path vs what exists in the repo today |
+| [Agent-chain strict compliance + campaign bridge](./integration/agent-chain-compliance-campaign-bridge.md) | Architects / backend / compliance | Strict gate flow for agent-chain and milestone bridge into rewards + ledger |
+| [Compliance domain DoD](./compliance-domain-dod.md) | Engineering / QA / compliance | Definition of Done checklist for agent-chain compliance and rewards/ledger bridge work |
 | [Generated architecture outputs](../generated/architecture/README.md) | DevOps / platform | Portal **Architecture** & **Workflows** pages write wiring JSON/markdown/scripts here |
 | [Event taxonomy crosswalk](./architecture/event-taxonomy-crosswalk.md) | Architects / integrators | SAAOS-style domain events mapped to NATS / CloudEvents in this repo |
 | [Shared contracts](../shared/contracts/README.md) | Backend / agents | JSON Schema for bounded agent run contracts |

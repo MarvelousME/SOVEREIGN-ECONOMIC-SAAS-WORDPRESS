@@ -44,8 +44,8 @@ if "%REQUESTED_SERVICES%"=="" (
 
 echo [INFO] Logs for:%REQUESTED_SERVICES% ^| tail=%TAIL% follow=%FOLLOW%
 if "%FOLLOW%"=="1" (
-  podman compose -f "%COMPOSE_FILE%" logs -f --tail %TAIL% %REQUESTED_SERVICES%
+  podman compose --env-file "%ENV_FILE%" -f "%COMPOSE_FILE%" logs -f --tail %TAIL% %REQUESTED_SERVICES%
 ) else (
-  podman compose -f "%COMPOSE_FILE%" logs --tail %TAIL% %REQUESTED_SERVICES%
+  podman compose --env-file "%ENV_FILE%" -f "%COMPOSE_FILE%" logs --tail %TAIL% %REQUESTED_SERVICES%
 )
 exit /b %errorlevel%

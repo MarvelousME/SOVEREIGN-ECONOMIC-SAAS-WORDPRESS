@@ -69,6 +69,13 @@ JWT_EXPIRY=24h
 CORS_ORIGIN=http://localhost:3001
 NODE_ENV=development
 LOG_LEVEL=debug
+
+# Landing Page Factory readiness flags (optional, safe defaults)
+REGION_TAG=us-east-1
+MULTI_REGION_READY=false
+WHITE_LABEL_READY=false
+TENANT_BRANDING_DOMAIN=
+TENANT_BRANDING_SUBDOMAIN=
 ```
 
 ### 2. Start infrastructure services
@@ -97,7 +104,7 @@ See commented variables in `.env.example` under “Optional local extras”. Ser
 
 ### 3. Set up the database
 
-`docker-compose.local.yml` mounts `api/dev-schema.sql` and `api/dev-seed.sql` into Postgres on first start, so a minimal local stack usually **does not** require a separate migration step.
+`docker-compose.local.yml` and `docker-compose.dev.yml` mount `api/dev-schema.sql`, `api/dev-seed.sql`, and `api/dev-patch.sql` into Postgres on first start (alphabetical order under `docker-entrypoint-initdb.d`), so a minimal local stack usually **does not** require a separate migration step. The patch file adds marketplace/notifications tables and **demo-linked rows** (treasury, rewards, task assignments, agent executions, app installs). Existing data volumes skip init scripts; apply changes manually with `psql -f api/dev-patch.sql` if needed.
 
 If you need to (re)apply SQL migrations manually against the **same** credentials as local Compose:
 
@@ -526,24 +533,23 @@ export const DEMO_MY_DATA: MyData[] = [
 
 ### Demo User in the Database
 
-If you want the "Try Demo" button to work against a real backend, create the demo user:
+The dev stack seeds **`demo` / `Demo@Platform1`** via `api/dev-seed.sql` (hash is kept in sync with `frontend/portal-ui/src/lib/demo.ts`). Linked demo data (treasury, rewards, tasks, agents, marketplace installs) is applied in **`api/dev-patch.sql`**.
+
+To create the demo user manually:
 
 ```sql
--- Password: Demo@Platform1 (bcrypt hashed)
+-- Password: Demo@Platform1 (bcrypt, 12 rounds — same as dev-seed)
 INSERT INTO users (username, email, password_hash, roles, status)
 VALUES (
   'demo',
-  'demo@ubi-platform.com',
-  '$2b$10$REPLACE_WITH_BCRYPT_HASH',
-  ARRAY['user'],
+  'demo@ubi-cms.dev',
+  '$2b$12$xB3eGveGduf3IuIgZdP6pupTWF3KJbzMA3VzgJ5JeYsddNXEE4rhm',
+  ARRAY['subscriber'],
   'active'
 ) ON CONFLICT (username) DO NOTHING;
 ```
 
-Generate the correct hash:
-```bash
-node -e "const bcrypt=require('bcrypt'); bcrypt.hash('Demo@Platform1', 10).then(console.log)"
-```
+Then run **`psql -f api/dev-patch.sql`** (or the full init order) to attach treasury, rewards, assignments, and executions.
 
 ---
 

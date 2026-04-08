@@ -1,11 +1,12 @@
 import { Router, Request, Response } from 'express';
 import { reportingService } from '../services/reporting.service';
 import { logger } from '../utils/logger';
-import { authMiddleware } from '../middleware/auth.middleware';
+import { authMiddleware, requireReportAccess } from '../middleware/auth.middleware';
 
 const router = Router();
 
 router.use(authMiddleware);
+router.use(requireReportAccess());
 
 // GET /api/v1/reports/dashboard - Main dashboard data
 router.get('/dashboard', async (req: Request, res: Response) => {
@@ -17,7 +18,7 @@ router.get('/dashboard', async (req: Request, res: Response) => {
     }
 
     const metrics = await reportingService.getDashboardMetrics(tenantId);
-    res.json({ metrics });
+    res.json({ metrics, region: (req.headers['x-region'] as string) || (req.query.region as string) || 'global' });
   } catch (error) {
     logger.error('Failed to get dashboard', { error });
     res.status(500).json({ error: 'Internal server error' });
@@ -25,7 +26,7 @@ router.get('/dashboard', async (req: Request, res: Response) => {
 });
 
 // GET /api/v1/reports/financial - Financial summary
-router.get('/financial', async (req: Request, res: Response) => {
+router.get('/financial', requireReportAccess({ requireSso: true }), async (req: Request, res: Response) => {
   try {
     const tenantId = req.headers['x-tenant-id'] as string;
     const period = (req.query.period as string) || '30d';
@@ -35,7 +36,7 @@ router.get('/financial', async (req: Request, res: Response) => {
     }
 
     const summary = await reportingService.getFinancialSummary(tenantId, period);
-    res.json({ summary });
+    res.json({ summary, region: (req.headers['x-region'] as string) || (req.query.region as string) || 'global' });
   } catch (error) {
     logger.error('Failed to get financial summary', { error });
     res.status(500).json({ error: 'Internal server error' });
@@ -43,7 +44,7 @@ router.get('/financial', async (req: Request, res: Response) => {
 });
 
 // GET /api/v1/reports/ubi-stats - UBI pool statistics
-router.get('/ubi-stats', async (req: Request, res: Response) => {
+router.get('/ubi-stats', requireReportAccess({ requireSso: true }), async (req: Request, res: Response) => {
   try {
     const tenantId = req.headers['x-tenant-id'] as string;
     const period = (req.query.period as string) || '30d';
@@ -53,7 +54,7 @@ router.get('/ubi-stats', async (req: Request, res: Response) => {
     }
 
     const stats = await reportingService.getUBIStatistics(tenantId, period);
-    res.json({ stats });
+    res.json({ stats, region: (req.headers['x-region'] as string) || (req.query.region as string) || 'global' });
   } catch (error) {
     logger.error('Failed to get UBI stats', { error });
     res.status(500).json({ error: 'Internal server error' });

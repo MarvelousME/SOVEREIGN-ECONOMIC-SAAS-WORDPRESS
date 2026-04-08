@@ -28,7 +28,7 @@ if errorlevel 1 (
 
 echo.
 echo [INFO] Compose services declared in: %COMPOSE_FILE%
-podman compose -f "%COMPOSE_FILE%" config --services
+podman compose --env-file "%ENV_FILE%" -f "%COMPOSE_FILE%" config --services
 if errorlevel 1 (
   echo [ERROR] Failed to parse compose services from %COMPOSE_FILE%.
   exit /b 1
@@ -36,7 +36,7 @@ if errorlevel 1 (
 
 echo.
 echo [INFO] Running/stopped containers for active compose file:
-podman compose -f "%COMPOSE_FILE%" ps
+podman compose --env-file "%ENV_FILE%" -f "%COMPOSE_FILE%" ps
 if errorlevel 1 (
   echo [WARN] Could not query compose ps for %COMPOSE_FILE%.
 )

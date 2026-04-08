@@ -10,7 +10,7 @@ if "%~1"=="" (
 )
 
 echo [INFO] Starting services: %*
-podman compose -f "%COMPOSE_FILE%" up -d %*
+podman compose --env-file "%ENV_FILE%" -f "%COMPOSE_FILE%" up -d %*
 if errorlevel 1 (
   echo [ERROR] Failed to start requested services.
   exit /b 1

@@ -1,4 +1,5 @@
 import { Request, Response, NextFunction } from 'express';
+import { z } from 'zod';
 import { BusinessService } from '../services/business.service';
 import {
   createBusinessSchema,
@@ -8,6 +9,10 @@ import {
   analyticsQuerySchema,
 } from '../validators/business.validator';
 import { getAllTemplates } from '../templates';
+
+const scopeQuerySchema = z.object({
+  scope: z.enum(['own', 'workspace']).optional().default('own'),
+});
 
 function tenantOr400(req: Request, res: Response): string | undefined {
   if (!req.tenantId) {
@@ -96,8 +101,13 @@ export class BusinessController {
 
       const limit = parseInt(req.query.limit as string) || 50;
       const offset = parseInt(req.query.offset as string) || 0;
+      const scopeQuery = scopeQuerySchema.parse(req.query);
 
-      const businesses = await this.businessService.getUserBusinesses(tenantId, userId, limit, offset);
+      const businesses = await this.businessService.getBusinesses(tenantId, userId, {
+        limit,
+        offset,
+        scope: scopeQuery.scope,
+      });
 
       res.json({
         success: true,

@@ -252,6 +252,16 @@ export interface BusinessMetrics {
   };
 }
 
+export interface WorkspaceBrandingBinding {
+  workspaceId: string;
+  tenantId: string;
+  themeId: string;
+  themeOverrides: Record<string, string>;
+  brandAssets: Record<string, string>;
+  updatedBy?: string;
+  updatedAt: Date;
+}
+
 export interface TemplateDefinition {
   id: BusinessTemplate;
   name: string;

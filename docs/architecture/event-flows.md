@@ -254,6 +254,43 @@ sequenceDiagram
 
 ---
 
+### 6. Agent-Chain Compliance and Campaign Milestone Bridge
+
+```mermaid
+sequenceDiagram
+    participant AgentChain
+    participant Compliance
+    participant Bridge
+    participant Rewards
+    participant Ledger
+    participant NATS
+
+    AgentChain->>NATS: Publish campaign.milestone.completed
+    NATS->>Compliance: campaign.milestone.completed
+    Compliance->>Compliance: Identity + tenant gate
+    Compliance->>Compliance: Policy decision gate
+    Compliance->>Compliance: Evidence completeness gate
+
+    alt Blocked or held
+        Compliance->>NATS: Publish policy.action_blocked or campaign.milestone.held
+    else Validated
+        Compliance->>Bridge: milestone validated + idempotency key
+        Bridge->>NATS: Publish campaign.milestone.validated
+        NATS->>Rewards: campaign.milestone.validated
+        Rewards->>NATS: Publish reward.earned
+        NATS->>Ledger: reward.earned
+        Ledger->>Ledger: Idempotent transaction write
+        Ledger->>NATS: Publish transaction.created
+    end
+```
+
+**Compliance invariants:**
+- No `reward.earned` event before policy/evidence gates pass
+- Idempotency key must remain stable from milestone validation to ledger posting
+- Correlation and causation IDs must be preserved across all emitted events
+
+---
+
 ## Event Correlation
 
 ### Correlation ID Flow
@@ -447,6 +484,9 @@ it('should handle user registration flow', async () => {
 | `proposal.voted` | Governance | Governance (tally) | Vote cast on proposal |
 | `task.created` | Task Marketplace | Reputation, Agent, Notification | New task available |
 | `task.completed` | Task Marketplace | Reputation, Rewards, Ledger | Task finished |
+| `campaign.milestone.completed` | Agent-chain / Campaign | Compliance | Milestone completion signal pending validation |
+| `campaign.milestone.validated` | Compliance bridge | Rewards | Milestone approved for reward processing |
+| `policy.action_blocked` | Compliance layer | Audit / reporting | Action denied by strict policy gate |
 | `ubi.distribution` | UBI Engine | Ledger, Notification, Reporting | UBI distributed |
 | `transaction.created` | Ledger | Reporting | Transaction recorded |
 | `reputation.updated` | Reputation | Task Marketplace, Governance | Reputation changed |

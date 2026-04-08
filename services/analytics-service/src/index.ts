@@ -17,7 +17,7 @@ app.use(helmet());
 app.use(cors({
   origin: '*',
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-Workspace-ID'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Workspace-ID', 'X-Region'],
 }));
 app.use(compression());
 app.use(morgan('combined', {

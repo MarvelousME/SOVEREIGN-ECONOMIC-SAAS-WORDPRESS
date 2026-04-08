@@ -8,6 +8,8 @@ export interface TenantContext {
   workspaceId?: string;
   userId?: string;
   roles?: string[];
+  ssoAuthenticated?: boolean;
+  region?: string;
 }
 
 declare global {
@@ -40,6 +42,9 @@ export function authMiddleware(req: Request, res: Response, next: NextFunction):
       workspaceId?: string;
       userId?: string;
       roles?: string[];
+      ssoAuthenticated?: boolean;
+      sso?: boolean;
+      region?: string;
     };
 
     req.tenantContext = {
@@ -47,6 +52,8 @@ export function authMiddleware(req: Request, res: Response, next: NextFunction):
       workspaceId: decoded.workspaceId,
       userId: decoded.userId,
       roles: decoded.roles,
+      ssoAuthenticated: Boolean(decoded.ssoAuthenticated ?? decoded.sso),
+      region: decoded.region,
     };
 
     next();
@@ -78,6 +85,9 @@ export function optionalAuthMiddleware(req: Request, res: Response, next: NextFu
       workspaceId?: string;
       userId?: string;
       roles?: string[];
+      ssoAuthenticated?: boolean;
+      sso?: boolean;
+      region?: string;
     };
 
     req.tenantContext = {
@@ -85,6 +95,8 @@ export function optionalAuthMiddleware(req: Request, res: Response, next: NextFu
       workspaceId: decoded.workspaceId,
       userId: decoded.userId,
       roles: decoded.roles,
+      ssoAuthenticated: Boolean(decoded.ssoAuthenticated ?? decoded.sso),
+      region: decoded.region,
     };
   } catch (error) {
     logger.warn('Optional JWT verification failed', { error });
@@ -111,12 +123,40 @@ export function requireRole(...roles: string[]) {
 
 export function workspaceMiddleware(req: Request, res: Response, next: NextFunction): void {
   const workspaceId = req.headers['x-workspace-id'] as string || req.query.workspaceId as string;
+  const region = (req.headers['x-region'] as string) || (req.query.region as string);
 
   if (workspaceId && req.tenantContext) {
     req.tenantContext.workspaceId = workspaceId;
   }
+  if (region && req.tenantContext) {
+    req.tenantContext.region = region;
+  }
 
   next();
+}
+
+export function requireReportAccess(options?: { minRole?: string; requireSso?: boolean }) {
+  const minRole = options?.minRole || 'analyst';
+  const requireSso = options?.requireSso ?? false;
+  const rank: Record<string, number> = { member: 1, analyst: 2, admin: 3, owner: 4 };
+
+  return (req: Request, res: Response, next: NextFunction): void => {
+    if (!req.tenantContext) {
+      res.status(401).json({ success: false, error: 'Authentication required' });
+      return;
+    }
+    const roles = req.tenantContext.roles || [];
+    const maxRoleRank = roles.reduce((acc, role) => Math.max(acc, rank[role] || 0), 0);
+    if (maxRoleRank < (rank[minRole] || rank.analyst)) {
+      res.status(403).json({ success: false, error: 'Insufficient report access role' });
+      return;
+    }
+    if (requireSso && !req.tenantContext.ssoAuthenticated) {
+      res.status(403).json({ success: false, error: 'SSO authentication required for this report' });
+      return;
+    }
+    next();
+  };
 }
 
 export function generateToken(payload: {

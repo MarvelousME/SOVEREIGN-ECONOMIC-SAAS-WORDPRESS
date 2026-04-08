@@ -18,7 +18,7 @@ echo [INFO] Compose file: %COMPOSE_FILE%
 echo.
 
 echo [STEP] Check service presence in compose
-podman compose -f "%COMPOSE_FILE%" config --services > "%SERVICES_FILE%"
+podman compose --env-file "%ENV_FILE%" -f "%COMPOSE_FILE%" config --services > "%SERVICES_FILE%"
 if errorlevel 1 (
   echo [ERROR] Could not parse compose services.
   exit /b 1

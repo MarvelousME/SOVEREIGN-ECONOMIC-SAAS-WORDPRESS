@@ -1,11 +1,12 @@
 'use client';
 
-import { useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import {
   BarChart3, TrendingUp, Users, DollarSign, Globe,
   Target, Zap, Calendar, ArrowUpRight, ArrowDownRight,
-  ChevronRight, GitBranch, PieChart as PieChartIcon,
+  ChevronRight, GitBranch, PieChart as PieChartIcon, RefreshCw,
 } from 'lucide-react';
 import { useHydratedDemoUser } from '@/hooks/use-hydrated-demo-user';
 import {
@@ -15,46 +16,14 @@ import {
 } from 'recharts';
 import { StatCard } from '@/components/dashboard/stat-card';
 import { cn } from '@/lib/utils';
-
-// ── Mock datasets ──────────────────────────────────────────────
-const monthlyRevenue = [
-  { month: 'Jul', revenue: 41200, expenses: 18000, profit: 23200 },
-  { month: 'Aug', revenue: 48000, expenses: 19400, profit: 28600 },
-  { month: 'Sep', revenue: 62400, expenses: 22100, profit: 40300 },
-  { month: 'Oct', revenue: 84200, expenses: 28900, profit: 55300 },
-  { month: 'Nov', revenue: 112000, expenses: 38400, profit: 73600 },
-  { month: 'Dec', revenue: 132000, expenses: 42000, profit: 90000 },
-  { month: 'Jan', revenue: 168432, expenses: 51200, profit: 117232 },
-];
-
-const userGrowth = [
-  { month: 'Jul', clients: 800, employees: 120, admins: 18 },
-  { month: 'Aug', clients: 1100, employees: 180, admins: 22 },
-  { month: 'Sep', clients: 1520, employees: 260, admins: 28 },
-  { month: 'Oct', clients: 2050, employees: 380, admins: 35 },
-  { month: 'Nov', clients: 2710, employees: 490, admins: 42 },
-  { month: 'Dec', clients: 3180, employees: 560, admins: 48 },
-  { month: 'Jan', clients: 3900, employees: 690, admins: 55 },
-];
-
-const taskCompletion = [
-  { week: 'W1', completed: 1240, assigned: 1600, rate: 77.5 },
-  { week: 'W2', completed: 1580, assigned: 1900, rate: 83.2 },
-  { week: 'W3', completed: 1320, assigned: 1700, rate: 77.6 },
-  { week: 'W4', completed: 1890, assigned: 2100, rate: 90.0 },
-  { week: 'W5', completed: 2100, assigned: 2300, rate: 91.3 },
-  { week: 'W6', completed: 1750, assigned: 2050, rate: 85.4 },
-  { week: 'W7', completed: 2380, assigned: 2500, rate: 95.2 },
-  { week: 'W8', completed: 2290, assigned: 2400, rate: 95.4 },
-];
-
-const geoDistribution = [
-  { region: 'North America', users: 28, color: 'hsl(var(--primary))' },
-  { region: 'Europe', users: 24, color: 'hsl(var(--accent))' },
-  { region: 'Asia Pacific', users: 31, color: '#10b981' },
-  { region: 'Africa', users: 10, color: '#f59e0b' },
-  { region: 'LATAM', users: 7, color: '#8b5cf6' },
-];
+import {
+  AnalyticsDashboardData,
+  CampaignReportRow,
+  CampaignReportSummary,
+  getAnalyticsDashboardData,
+  getCampaignReport,
+} from '@/lib/workspace-social-api';
+import { useLatestAbortController } from '@/hooks/use-latest-abort-controller';
 
 const retentionData = [
   { cohort: 'Aug', m1: 100, m2: 76, m3: 62, m4: 54, m5: 49 },
@@ -89,8 +58,121 @@ function ChartTip({ active, payload, label }: { active?: boolean; payload?: { va
 const PERIODS = ['7D', '30D', '90D', '12M', 'ALL'];
 
 export default function AnalyticsPage() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
   const demo = useHydratedDemoUser();
   const [period, setPeriod] = useState('12M');
+  const [scope, setScope] = useState<'own' | 'workspace'>(
+    searchParams.get('scope') === 'own' ? 'own' : 'workspace'
+  );
+  const [query, setQuery] = useState(searchParams.get('q') || '');
+  const [debouncedQuery, setDebouncedQuery] = useState(searchParams.get('q') || '');
+  const [sort, setSort] = useState<'updated' | 'name' | 'throughput' | 'success_rate' | 'failure_rate'>(
+    searchParams.get('sort') === 'name' ||
+      searchParams.get('sort') === 'throughput' ||
+      searchParams.get('sort') === 'success_rate' ||
+      searchParams.get('sort') === 'failure_rate'
+      ? (searchParams.get('sort') as 'name' | 'throughput' | 'success_rate' | 'failure_rate')
+      : 'updated'
+  );
+  const [direction, setDirection] = useState<'asc' | 'desc'>(
+    searchParams.get('direction') === 'asc' ? 'asc' : 'desc'
+  );
+  const [page, setPage] = useState(Math.max(1, Number(searchParams.get('page') || 1)));
+  const pageSize = 10;
+  const [loadingReport, setLoadingReport] = useState(false);
+  const [reportError, setReportError] = useState<string | null>(null);
+  const [summary, setSummary] = useState<CampaignReportSummary | null>(null);
+  const [rows, setRows] = useState<CampaignReportRow[]>([]);
+  const [total, setTotal] = useState(0);
+  const [analyticsData, setAnalyticsData] = useState<AnalyticsDashboardData | null>(null);
+  const [loadingAnalytics, setLoadingAnalytics] = useState(false);
+  const [analyticsError, setAnalyticsError] = useState<string | null>(null);
+  const latestReportRequestRef = useRef(0);
+  const latestAnalyticsRequestRef = useRef(0);
+  const { nextSignal } = useLatestAbortController();
+
+  useEffect(() => {
+    const timeout = setTimeout(() => {
+      setDebouncedQuery(query);
+    }, 250);
+    return () => clearTimeout(timeout);
+  }, [query]);
+
+  const loadCampaignReport = useCallback(async () => {
+    const requestId = latestReportRequestRef.current + 1;
+    latestReportRequestRef.current = requestId;
+    const signal = nextSignal();
+    setLoadingReport(true);
+    setReportError(null);
+    try {
+      const now = new Date();
+      const from = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+      const result = await getCampaignReport(
+        {
+          scope,
+          q: debouncedQuery.trim() || undefined,
+          sort,
+          direction,
+          from: from.toISOString(),
+          to: now.toISOString(),
+          limit: pageSize,
+          offset: (page - 1) * pageSize,
+        },
+        { signal }
+      );
+      if (requestId !== latestReportRequestRef.current) return;
+      setSummary(result.summary);
+      setRows(result.rows || []);
+      setTotal(Number(result.pagination?.total || 0));
+    } catch (err) {
+      if (requestId !== latestReportRequestRef.current) return;
+      if (err instanceof DOMException && err.name === 'AbortError') return;
+      setReportError(err instanceof Error ? err.message : 'Failed to load campaign report');
+    } finally {
+      if (requestId !== latestReportRequestRef.current) return;
+      setLoadingReport(false);
+    }
+  }, [scope, debouncedQuery, sort, direction, page, nextSignal]);
+
+  useEffect(() => {
+    void loadCampaignReport();
+  }, [loadCampaignReport]);
+
+  useEffect(() => {
+    const requestId = latestAnalyticsRequestRef.current + 1;
+    latestAnalyticsRequestRef.current = requestId;
+    const signal = nextSignal();
+    setLoadingAnalytics(true);
+    setAnalyticsError(null);
+
+    const normalizedPeriod = period === '7D' ? '7d' : period === '90D' ? '90d' : '30d';
+    getAnalyticsDashboardData(normalizedPeriod, undefined, undefined, { signal })
+      .then((data) => {
+        if (requestId !== latestAnalyticsRequestRef.current) return;
+        setAnalyticsData(data);
+      })
+      .catch((err: unknown) => {
+        if (requestId !== latestAnalyticsRequestRef.current) return;
+        if (err instanceof DOMException && err.name === 'AbortError') return;
+        setAnalyticsError(err instanceof Error ? err.message : 'Failed to load analytics charts');
+      })
+      .finally(() => {
+        if (requestId !== latestAnalyticsRequestRef.current) return;
+        setLoadingAnalytics(false);
+      });
+  }, [period, nextSignal]);
+
+  useEffect(() => {
+    const params = new URLSearchParams();
+    if (scope !== 'workspace') params.set('scope', scope);
+    if (query.trim()) params.set('q', query.trim());
+    if (sort !== 'updated') params.set('sort', sort);
+    if (direction !== 'desc') params.set('direction', direction);
+    if (page > 1) params.set('page', String(page));
+    const q = params.toString();
+    router.replace(q ? `?${q}` : '?');
+  }, [scope, query, sort, direction, page, router]);
 
   return (
     <div className="space-y-6 pb-8">
@@ -123,10 +205,159 @@ export default function AnalyticsPage() {
 
       {/* KPI row */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <StatCard title="Monthly Revenue" value="$168,432" change={27.6} changeLabel="vs last month" icon={DollarSign} accent="success" sublabel="Platform-wide" glow />
-        <StatCard title="Net Profit" value="$117,232" change={30.2} changeLabel="vs last month" icon={TrendingUp} accent="primary" sublabel="69.6% margin" />
-        <StatCard title="New Users" value="1,020" change={15.4} changeLabel="this month" icon={Users} accent="info" sublabel="Across all roles" />
-        <StatCard title="Task Completion" value="95.4%" change={3.8} changeLabel="vs last week" icon={Target} accent="warning" sublabel="2,290 / 2,400 tasks" />
+        <StatCard title="Monthly Revenue" value={`$${Math.round(analyticsData?.kpis.monthlyRevenue || 0).toLocaleString()}`} change={analyticsData?.kpis.monthlyRevenueChange || 0} changeLabel="vs last period" icon={DollarSign} accent="success" sublabel="Platform-wide" glow />
+        <StatCard title="Net Profit" value={`$${Math.round(analyticsData?.kpis.netProfit || 0).toLocaleString()}`} change={analyticsData?.kpis.netProfitChange || 0} changeLabel="vs last period" icon={TrendingUp} accent="primary" sublabel="Derived from revenue series" />
+        <StatCard title="New Users" value={String(Math.round(analyticsData?.kpis.newUsers || 0))} change={analyticsData?.kpis.newUsersChange || 0} changeLabel="from conversions" icon={Users} accent="info" sublabel="Backend analytics" />
+        <StatCard title="Task Completion" value={`${(analyticsData?.kpis.completionRate || 0).toFixed(1)}%`} change={analyticsData?.kpis.completionRateChange || 0} changeLabel="latest funnel rate" icon={Target} accent="warning" sublabel="From funnel endpoint" />
+      </div>
+      {analyticsError && <div className="rounded-lg bg-destructive/10 text-destructive px-3 py-2 text-xs">{analyticsError}</div>}
+
+      <div className="rounded-xl border border-border p-5 space-y-4" style={{ background: 'hsl(var(--card))' }}>
+        <div className="flex items-center justify-between gap-3">
+          <h2 className="text-sm font-semibold text-foreground">Campaign Runtime Report (last 30 days)</h2>
+          <button
+            onClick={() => void loadCampaignReport()}
+            className="text-xs px-2 py-1 rounded border border-border hover:bg-muted/40"
+          >
+            Refresh
+          </button>
+        </div>
+
+        <div className="flex flex-wrap gap-2 items-center">
+          <div className="inline-flex rounded-lg border border-border overflow-hidden">
+            <button
+              type="button"
+              onClick={() => {
+                setScope('own');
+                setPage(1);
+              }}
+              className={`px-3 py-1.5 text-xs ${scope === 'own' ? 'bg-primary text-primary-foreground' : 'bg-transparent text-muted-foreground hover:bg-muted/40'}`}
+            >
+              Own
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setScope('workspace');
+                setPage(1);
+              }}
+              className={`px-3 py-1.5 text-xs ${scope === 'workspace' ? 'bg-primary text-primary-foreground' : 'bg-transparent text-muted-foreground hover:bg-muted/40'}`}
+            >
+              Workspace-wide
+            </button>
+          </div>
+          <input
+            value={query}
+            onChange={(e) => {
+              setQuery(e.target.value);
+              setPage(1);
+            }}
+            placeholder="Search campaigns..."
+            className="rounded-lg border border-border bg-background px-3 py-1.5 text-sm"
+          />
+          <select
+            value={sort}
+            onChange={(e) => {
+              setSort(e.target.value as typeof sort);
+              setPage(1);
+            }}
+            className="rounded-lg border border-border bg-background px-3 py-1.5 text-sm"
+          >
+            <option value="updated">Sort: Updated</option>
+            <option value="name">Sort: Name</option>
+            <option value="throughput">Sort: Throughput</option>
+            <option value="success_rate">Sort: Success rate</option>
+            <option value="failure_rate">Sort: Failure rate</option>
+          </select>
+          <select
+            value={direction}
+            onChange={(e) => {
+              setDirection(e.target.value as typeof direction);
+              setPage(1);
+            }}
+            className="rounded-lg border border-border bg-background px-3 py-1.5 text-sm"
+          >
+            <option value="desc">Desc</option>
+            <option value="asc">Asc</option>
+          </select>
+          {query !== debouncedQuery && (
+            <span className="text-xs text-muted-foreground inline-flex items-center gap-1">
+              <RefreshCw className="w-3 h-3 animate-spin" />
+              Searching...
+            </span>
+          )}
+        </div>
+
+        {reportError && <div className="rounded-lg bg-destructive/10 text-destructive px-3 py-2 text-xs">{reportError}</div>}
+
+        {summary && (
+          <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
+            <StatCard title="Posts" value={String(summary.kpis.totalPosts)} icon={BarChart3} />
+            <StatCard title="Published" value={String(summary.kpis.publishedPosts)} icon={TrendingUp} />
+            <StatCard title="Failed" value={String(summary.kpis.failedPosts)} icon={ArrowDownRight} />
+            <StatCard title="Success Rate" value={`${summary.kpis.successRate.toFixed(1)}%`} icon={ArrowUpRight} />
+            <StatCard title="Throughput/Day" value={summary.kpis.publishThroughputPerDay.toFixed(2)} icon={Zap} />
+          </div>
+        )}
+
+        <div className="rounded-lg border border-border overflow-auto">
+          <table className="w-full text-xs">
+            <thead>
+              <tr className="border-b border-border text-left">
+                <th className="px-3 py-2">Campaign</th>
+                <th className="px-3 py-2">Status</th>
+                <th className="px-3 py-2">Posts</th>
+                <th className="px-3 py-2">Success</th>
+                <th className="px-3 py-2">Failures</th>
+                <th className="px-3 py-2">Throughput/Day</th>
+              </tr>
+            </thead>
+            <tbody>
+              {loadingReport ? (
+                <tr><td className="px-3 py-3 text-muted-foreground" colSpan={6}>Loading report...</td></tr>
+              ) : rows.length === 0 ? (
+                <tr><td className="px-3 py-3 text-muted-foreground" colSpan={6}>No campaigns found.</td></tr>
+              ) : (
+                rows.map((row) => (
+                  <tr key={row.campaignId} className="border-b border-border/50">
+                    <td className="px-3 py-2">{row.campaignName}</td>
+                    <td className="px-3 py-2">{row.campaignStatus}</td>
+                    <td className="px-3 py-2">{row.kpis.totalPosts}</td>
+                    <td className="px-3 py-2">{row.kpis.successRate.toFixed(1)}%</td>
+                    <td className="px-3 py-2">{row.kpis.failedPosts}</td>
+                    <td className="px-3 py-2">{row.kpis.publishThroughputPerDay.toFixed(2)}</td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+        <div className="flex items-center justify-between text-xs text-muted-foreground">
+          <span>
+            {total === 0
+              ? 'No results'
+              : `Showing ${(page - 1) * pageSize + 1}-${Math.min(page * pageSize, total)} of ${total}`}
+          </span>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setPage((p) => Math.max(1, p - 1))}
+              disabled={page <= 1}
+              className="rounded border border-border px-2 py-1 disabled:opacity-50"
+            >
+              Prev
+            </button>
+            <span>Page {page} / {Math.max(1, Math.ceil(total / pageSize))}</span>
+            <button
+              type="button"
+              onClick={() => setPage((p) => p + 1)}
+              disabled={page * pageSize >= total}
+              className="rounded border border-border px-2 py-1 disabled:opacity-50"
+            >
+              Next
+            </button>
+          </div>
+        </div>
       </div>
 
       {/* Quick nav to detailed analytics */}
@@ -193,7 +424,7 @@ export default function AnalyticsPage() {
           </div>
         </div>
         <ResponsiveContainer width="100%" height={220}>
-          <AreaChart data={monthlyRevenue} margin={{ top: 4, right: 4, left: -15, bottom: 0 }}>
+          <AreaChart data={analyticsData?.revenueSeries || []} margin={{ top: 4, right: 4, left: -15, bottom: 0 }}>
             <defs>
               <linearGradient id="revG" x1="0" y1="0" x2="0" y2="1">
                 <stop offset="5%" stopColor="hsl(var(--primary))" stopOpacity={0.3} />
@@ -205,12 +436,12 @@ export default function AnalyticsPage() {
               </linearGradient>
             </defs>
             <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-            <XAxis dataKey="month" tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }} axisLine={false} tickLine={false} />
+            <XAxis dataKey="label" tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }} axisLine={false} tickLine={false} />
             <YAxis tick={{ fontSize: 10, fill: 'hsl(var(--muted-foreground))' }} axisLine={false} tickLine={false} tickFormatter={(v) => `$${(v / 1000).toFixed(0)}k`} />
             <Tooltip content={<ChartTip />} />
-            <Area type="monotone" dataKey="revenue" name="Revenue" stroke="hsl(var(--primary))" fill="url(#revG)" strokeWidth={2} />
-            <Area type="monotone" dataKey="profit" name="Profit" stroke="#10b981" fill="url(#profG)" strokeWidth={2} />
-            <Area type="monotone" dataKey="expenses" name="Expenses" stroke="hsl(var(--destructive))" fill="transparent" strokeWidth={1.5} strokeDasharray="4 4" />
+            <Area type="monotone" dataKey="revenue" name="Revenue" stroke="hsl(var(--primary))" fill="url(#revG)" strokeWidth={2} isAnimationActive={!loadingAnalytics} />
+            <Area type="monotone" dataKey="profit" name="Profit" stroke="#10b981" fill="url(#profG)" strokeWidth={2} isAnimationActive={!loadingAnalytics} />
+            <Area type="monotone" dataKey="expenses" name="Expenses" stroke="hsl(var(--destructive))" fill="transparent" strokeWidth={1.5} strokeDasharray="4 4" isAnimationActive={!loadingAnalytics} />
           </AreaChart>
         </ResponsiveContainer>
       </div>
@@ -221,17 +452,15 @@ export default function AnalyticsPage() {
         <div className="lg:col-span-2 rounded-xl border border-border p-5" style={{ background: 'hsl(var(--card))' }}>
           <h2 className="text-sm font-semibold text-foreground mb-4 flex items-center gap-2">
             <Users className="w-4 h-4" style={{ color: 'hsl(var(--primary))' }} />
-            User Growth by Role
+            Event Volume by Day
           </h2>
           <ResponsiveContainer width="100%" height={200}>
-            <BarChart data={userGrowth} margin={{ top: 4, right: 4, left: -20, bottom: 0 }}>
+            <BarChart data={analyticsData?.engagementSeries || []} margin={{ top: 4, right: 4, left: -20, bottom: 0 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-              <XAxis dataKey="month" tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }} axisLine={false} tickLine={false} />
+              <XAxis dataKey="label" tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }} axisLine={false} tickLine={false} />
               <YAxis tick={{ fontSize: 10, fill: 'hsl(var(--muted-foreground))' }} axisLine={false} tickLine={false} />
               <Tooltip content={<ChartTip />} />
-              <Bar dataKey="clients" name="Clients" stackId="a" fill="hsl(var(--primary))" radius={[0, 0, 0, 0]} opacity={0.85} />
-              <Bar dataKey="employees" name="Employees" stackId="a" fill="hsl(var(--accent))" opacity={0.85} />
-              <Bar dataKey="admins" name="Admins" stackId="a" fill="#f59e0b" radius={[3, 3, 0, 0]} opacity={0.85} />
+              <Bar dataKey="events" name="Events" fill="hsl(var(--primary))" radius={[3, 3, 0, 0]} opacity={0.85} isAnimationActive={!loadingAnalytics} />
             </BarChart>
           </ResponsiveContainer>
         </div>
@@ -244,14 +473,14 @@ export default function AnalyticsPage() {
           </h2>
           <ResponsiveContainer width="100%" height={160}>
             <PieChart>
-              <Pie data={geoDistribution} cx="50%" cy="50%" innerRadius={42} outerRadius={68} paddingAngle={3} dataKey="users">
-                {geoDistribution.map((entry, i) => <Cell key={i} fill={entry.color} />)}
+              <Pie data={analyticsData?.channelDistribution || []} cx="50%" cy="50%" innerRadius={42} outerRadius={68} paddingAngle={3} dataKey="users">
+                {(analyticsData?.channelDistribution || []).map((entry, i) => <Cell key={i} fill={entry.color} />)}
               </Pie>
               <Tooltip formatter={(v) => [`${v}%`, '']} contentStyle={{ background: 'hsl(var(--popover))', border: '1px solid hsl(var(--border))', borderRadius: '8px', fontSize: '11px' }} />
             </PieChart>
           </ResponsiveContainer>
           <div className="space-y-1.5 mt-1">
-            {geoDistribution.map((g) => (
+            {(analyticsData?.channelDistribution || []).map((g) => (
               <div key={g.region} className="flex items-center justify-between text-xs">
                 <div className="flex items-center gap-2">
                   <div className="w-2 h-2 rounded-full" style={{ background: g.color }} />
@@ -270,15 +499,15 @@ export default function AnalyticsPage() {
         <div className="rounded-xl border border-border p-5" style={{ background: 'hsl(var(--card))' }}>
           <h2 className="text-sm font-semibold text-foreground mb-4 flex items-center gap-2">
             <Target className="w-4 h-4" style={{ color: 'hsl(var(--primary))' }} />
-            Task Completion Rate (8 weeks)
+            Funnel Completion Rate
           </h2>
           <ResponsiveContainer width="100%" height={180}>
-            <LineChart data={taskCompletion} margin={{ top: 4, right: 4, left: -20, bottom: 0 }}>
+            <LineChart data={analyticsData?.funnelSeries || []} margin={{ top: 4, right: 4, left: -20, bottom: 0 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
               <XAxis dataKey="week" tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }} axisLine={false} tickLine={false} />
               <YAxis domain={[70, 100]} tick={{ fontSize: 10, fill: 'hsl(var(--muted-foreground))' }} axisLine={false} tickLine={false} tickFormatter={(v) => `${v}%`} />
               <Tooltip formatter={(v) => [`${v}%`, 'Rate']} content={<ChartTip />} />
-              <Line type="monotone" dataKey="rate" name="Completion %" stroke="hsl(var(--primary))" strokeWidth={2.5} dot={{ fill: 'hsl(var(--primary))', r: 3 }} />
+              <Line type="monotone" dataKey="rate" name="Completion %" stroke="hsl(var(--primary))" strokeWidth={2.5} dot={{ fill: 'hsl(var(--primary))', r: 3 }} isAnimationActive={!loadingAnalytics} />
             </LineChart>
           </ResponsiveContainer>
         </div>

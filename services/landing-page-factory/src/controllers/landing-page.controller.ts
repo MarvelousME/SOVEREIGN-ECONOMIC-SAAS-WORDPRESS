@@ -7,8 +7,12 @@ import { TemplateEngineService } from '../services/templateEngine';
 import { VersionManagerService } from '../services/versionManager';
 import { DisclosureInjectorService } from '../services/disclosureInjector';
 import { PublishPipelineService } from '../services/publishPipeline';
+import { buildSocialShareLinks } from '../services/socialShareLinks';
+import { notifySocialPublishWebhook } from '../services/socialPublishWebhook';
 import { eventPublisher } from '../utils/event-publisher';
-import { BrandTone, PageStatus } from '../types';
+import { BrandTone, PageStatus, TemplateCategory } from '../types';
+import { SocialModel } from '../models/social.model';
+import { SocialQueueService } from '../services/socialQueue';
 
 const CreatePageSchema = z.object({
   name: z.string().min(1).max(255),
@@ -45,6 +49,7 @@ const GeneratePageSchema = z.object({
   description: z.string().optional(),
   businessId: z.string().uuid().optional(),
   templateId: z.string().uuid().optional(),
+  affiliateNetwork: z.string().optional(),
   brandTone: z.nativeEnum(BrandTone).optional(),
   locale: z.string().optional(),
   includeDisclosures: z.boolean().optional(),
@@ -55,6 +60,22 @@ const PublishPageSchema = z.object({
   targetType: z.enum(['cdn', 'subdomain', 'custom_domain', 'embedded']).optional(),
   subdomain: z.string().optional(),
   customDomain: z.string().optional(),
+  social: z
+    .object({
+      autoPost: z.boolean().optional(),
+      text: z.string().min(1).max(2000).optional(),
+      socialAccountIds: z.array(z.string().uuid()).optional(),
+      scheduledFor: z.string().datetime().optional(),
+      utm: z
+        .object({
+          source: z.string().optional(),
+          medium: z.string().optional(),
+          campaign: z.string().optional(),
+          content: z.string().optional(),
+        })
+        .optional(),
+    })
+    .optional(),
 });
 
 const RollbackSchema = z.object({
@@ -77,7 +98,17 @@ const CreateTemplateSchema = z.object({
   }),
   variables: z.array(z.any()).optional(),
   isPublic: z.boolean().optional(),
-  isA/BTestable: z.boolean().optional(),
+  isAbTestable: z.boolean().optional(),
+});
+
+const ScopeQuerySchema = z.object({
+  scope: z.enum(['own', 'workspace']).optional().default('workspace'),
+});
+
+const TemplateListQuerySchema = z.object({
+  scope: z.enum(['own', 'workspace']).optional().default('workspace'),
+  limit: z.coerce.number().int().min(1).max(200).optional().default(20),
+  offset: z.coerce.number().int().min(0).optional().default(0),
 });
 
 export interface TenantContext {
@@ -95,6 +126,8 @@ export class LandingPageController {
   private versionManager: VersionManagerService;
   private disclosureInjector: DisclosureInjectorService;
   private publishPipeline: PublishPipelineService;
+  private socialModel: SocialModel;
+  private socialQueue: SocialQueueService;
 
   constructor(
     db: Pool,
@@ -109,6 +142,8 @@ export class LandingPageController {
     this.versionManager = new VersionManagerService(db);
     this.disclosureInjector = new DisclosureInjectorService();
     this.publishPipeline = new PublishPipelineService(db);
+    this.socialModel = new SocialModel(db);
+    this.socialQueue = new SocialQueueService(db);
   }
 
   generatePage = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
@@ -219,14 +254,23 @@ export class LandingPageController {
 
   getPages = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
-      const { tenantId } = req.body as TenantContext;
+      const { tenantId, userId } = req.body as TenantContext;
       const page = parseInt(req.query.page as string) || 1;
       const limit = parseInt(req.query.limit as string) || 20;
       const status = req.query.status as PageStatus | undefined;
       const businessId = req.query.businessId as string | undefined;
       const search = req.query.search as string | undefined;
+      const scopeQuery = ScopeQuerySchema.parse(req.query);
 
-      const result = await this.pageModel.findAll(tenantId, { page, limit, status, businessId, search });
+      const result = await this.pageModel.findAll(tenantId, {
+        page,
+        limit,
+        status,
+        businessId,
+        search,
+        scope: scopeQuery.scope,
+        userId,
+      });
 
       res.json({
         success: true,
@@ -236,6 +280,11 @@ export class LandingPageController {
           page,
           limit,
           totalPages: Math.ceil(result.total / limit),
+        },
+        pagination: {
+          total: result.total,
+          limit,
+          offset: (page - 1) * limit,
         },
       });
     } catch (error) {
@@ -362,9 +411,66 @@ export class LandingPageController {
         customDomain: validationResult.data.customDomain,
       });
 
+      const primaryUrl = result.urls[0] || '';
+      const shareLinks =
+        primaryUrl && /^https?:\/\//i.test(primaryUrl)
+          ? buildSocialShareLinks(primaryUrl, page.name || page.slug || 'Landing page')
+          : null;
+
+      void notifySocialPublishWebhook({
+        event: 'page.published',
+        pageId: id,
+        tenantId,
+        urls: result.urls,
+        shareLinks: shareLinks ? { ...shareLinks } : {},
+        targetTypes: result.targets.map((t) => t.type),
+      });
+
+      const queuedSocialPostIds: string[] = [];
+      if (validationResult.data.social?.autoPost && primaryUrl) {
+        const accounts = validationResult.data.social.socialAccountIds?.length
+          ? await Promise.all(
+              validationResult.data.social.socialAccountIds.map(async (accountId) =>
+                this.socialModel.getSocialAccountById(tenantId, accountId)
+              )
+            ).then((items) => items.filter((a): a is NonNullable<typeof a> => Boolean(a)))
+          : await this.socialModel.listSocialAccounts(tenantId);
+
+        const scheduledFor = validationResult.data.social.scheduledFor
+          ? new Date(validationResult.data.social.scheduledFor)
+          : undefined;
+        const delayMs = scheduledFor ? Math.max(0, scheduledFor.getTime() - Date.now()) : 0;
+        const text = validationResult.data.social.text || `New landing page: ${page.name}`;
+
+        for (const account of accounts) {
+          const post = await this.socialModel.createSocialPost({
+            tenantId,
+            pageId: id,
+            socialAccountId: account.id,
+            provider: account.provider,
+            status: scheduledFor ? 'scheduled' : 'queued',
+            text,
+            linkUrl: primaryUrl,
+            utmParams: validationResult.data.social.utm || {},
+            scheduledFor,
+            maxAttempts: 5,
+            metadata: {
+              source: 'publishPage.autoPost',
+            },
+            createdBy: (req.body as TenantContext).userId,
+          });
+          queuedSocialPostIds.push(post.id);
+          await this.socialQueue.enqueuePublishJob({ tenantId, socialPostId: post.id }, delayMs);
+        }
+      }
+
       res.json({
         success: true,
-        data: result,
+        data: {
+          ...result,
+          shareLinks,
+          queuedSocialPostIds,
+        },
       });
     } catch (error) {
       next(error);
@@ -420,12 +526,28 @@ export class LandingPageController {
 
   getTemplates = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
-      const includePrivate = req.query.includePrivate === 'true';
-      const templates = await this.templateEngine.getAllTemplates(includePrivate);
+      const { tenantId, userId } = req.body as TenantContext;
+      const includePrivate = req.query.includePrivate !== 'false';
+      const category = req.query.category as TemplateCategory | undefined;
+      const query = TemplateListQuerySchema.parse(req.query);
+      const result = await this.templateModel.findAll({
+        tenantId,
+        userId,
+        category,
+        includePrivate,
+        scope: query.scope,
+        limit: query.limit,
+        offset: query.offset,
+      });
 
       res.json({
         success: true,
-        data: templates,
+        data: result.data,
+        pagination: {
+          total: result.total,
+          limit: query.limit,
+          offset: query.offset,
+        },
       });
     } catch (error) {
       next(error);
@@ -434,6 +556,7 @@ export class LandingPageController {
 
   createTemplate = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
+      const { tenantId, userId } = req.body as TenantContext;
       const validationResult = CreateTemplateSchema.safeParse(req.body);
       if (!validationResult.success) {
         res.status(400).json({
@@ -444,7 +567,14 @@ export class LandingPageController {
         return;
       }
 
-      const template = await this.templateEngine.createTemplate(validationResult.data);
+      const d = validationResult.data;
+      const template = await this.templateModel.create({
+        ...d,
+        tenantId,
+        createdBy: userId,
+        description: d.description ?? '',
+        category: d.category as TemplateCategory,
+      });
 
       res.status(201).json({
         success: true,
